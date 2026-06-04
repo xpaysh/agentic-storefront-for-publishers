@@ -1,0 +1,30 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "asp/recommendations",
+	"title": "Recommendations",
+	"description": "Contextual product recommendations for this post.",
+	"category": "widgets",
+	"icon": "products",
+	"keywords": ["recommendations", "products", "affiliate", "xpay"],
+	"textdomain": "agentic-storefront-for-publishers",
+	"supports": {
+		"html": false,
+		"align": ["wide", "full"]
+	},
+	"attributes": {
+		"title": {
+			"type": "string",
+			"default": ""
+		},
+		"limit": {
+			"type": "number",
+			"default": 3
+		},
+		"layout": {
+			"type": "string",
+			"default": "cards"
+		}
+	},
+	"editorScript": "file:./index.js"
+}

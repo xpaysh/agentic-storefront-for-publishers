@@ -1,0 +1,42 @@
+<?php
+/**
+ * Plugin Name:       Agentic Storefront for Publishers
+ * Plugin URI:        https://www.xpay.sh/publishers/
+ * Description:       Contextual product recommendations for content publishers. Embeds a lightweight, privacy-first widget that surfaces relevant products on your posts, and publishes an agent-readable storefront endpoint so AI assistants can discover and recommend products from your site.
+ * Version:           0.1.0
+ * Requires at least: 6.2
+ * Requires PHP:      7.4
+ * Author:            xpay
+ * Author URI:        https://www.xpay.sh
+ * License:           GPL-2.0-or-later
+ * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain:       agentic-storefront-for-publishers
+ * Domain Path:       /languages
+ */
+
+defined( 'ABSPATH' ) || exit;
+
+define( 'ASP_VERSION', '0.1.0' );
+define( 'ASP_FILE', __FILE__ );
+define( 'ASP_PATH', plugin_dir_path( __FILE__ ) );
+define( 'ASP_URL', plugin_dir_url( __FILE__ ) );
+define( 'ASP_API_BASE', defined( 'ASP_API_BASE_OVERRIDE' ) ? ASP_API_BASE_OVERRIDE : 'https://api.xpay.sh' );
+define( 'ASP_CONNECT_URL', defined( 'ASP_CONNECT_URL_OVERRIDE' ) ? ASP_CONNECT_URL_OVERRIDE : 'https://app.xpay.sh/onboard/publisher' );
+
+require_once ASP_PATH . 'includes/class-asp-plugin.php';
+
+register_activation_hook( __FILE__, array( 'ASP_Plugin', 'on_activate' ) );
+register_deactivation_hook( __FILE__, array( 'ASP_Plugin', 'on_deactivate' ) );
+
+add_action( 'plugins_loaded', array( 'ASP_Plugin', 'instance' ), 10 );
+
+add_action(
+	'init',
+	function () {
+		load_plugin_textdomain(
+			'agentic-storefront-for-publishers',
+			false,
+			dirname( plugin_basename( __FILE__ ) ) . '/languages/'
+		);
+	}
+);
