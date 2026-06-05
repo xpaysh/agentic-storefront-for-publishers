@@ -12,6 +12,8 @@ Contextual product recommendations for content publishers + an agent-readable st
 
 == Description ==
 
+**Full plain-English overview:** https://www.xpay.sh/publishers/wordpress-plugin
+
 **Your readers are increasingly arriving from ChatGPT, Claude, Gemini and Perplexity.** They're also still arriving the usual way. Agentic Storefront helps you serve both at once with one short install.
 
 For human readers, the plugin adds an optional, dismissible recommendation widget powered by a curated catalog of merchants. You decide where it appears — by shortcode or block — and what categories to exclude. No tracking pixels, no behavioural targeting, no third-party cookies. The recommendation engine matches against the page you publish, not the visitor.

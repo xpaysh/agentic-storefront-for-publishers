@@ -159,6 +159,16 @@ class ASP_Settings {
 		<div class="wrap asp-admin">
 			<h1><?php echo esc_html__( 'Agentic Storefront for Publishers', 'agentic-storefront-for-publishers' ); ?></h1>
 
+			<p class="asp-intro" style="margin: 0 0 14px; color: #6b7280; font-size: 13px;">
+				<?php
+				printf(
+					/* translators: %s: link to the landing page */
+					esc_html__( 'Plain-English overview of what this plugin does, how revenue works, and Mediavine/Ezoic compatibility: %s', 'agentic-storefront-for-publishers' ),
+					'<a href="https://www.xpay.sh/publishers/wordpress-plugin" target="_blank" rel="noopener">xpay.sh/publishers/wordpress-plugin →</a>'
+				);
+				?>
+			</p>
+
 			<div class="asp-card">
 				<h2><?php echo esc_html__( 'Connection', 'agentic-storefront-for-publishers' ); ?></h2>
 				<?php if ( $connected ) : ?>
