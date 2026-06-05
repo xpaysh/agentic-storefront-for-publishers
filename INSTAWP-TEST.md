@@ -23,19 +23,28 @@ Stage `dev` deployed to AWS account `582760238698` (us-east-1) via `agentically`
 
    (InstaWP has a wp-config editor under **InstaWP magic** menu — or use the file manager.)
 
-5. Connect with a test `site_id`. Two options:
+5. Click **Connect site**. The plugin redirects to
+   `app.xpay.sh/onboard/publisher` (built in `xpay-app/src/app/onboard/publisher/`),
+   which calls `/storefront/register` server-side, mints a `site_id`, and
+   redirects back to the plugin settings page with `?asp_site_id=…` appended.
+   The settings page auto-captures + persists it.
 
-   **A. Use the pre-minted test site:**
-   `site_773571663617412c91`
+   **Local fallback (if `app.xpay.sh/onboard/publisher` isn't yet deployed):**
 
-   **B. Mint a fresh one:**
+   Mint a `site_id` manually:
    ```bash
    curl -X POST https://1iiczxdfea.execute-api.us-east-1.amazonaws.com/storefront/register \
      -H 'Content-Type: application/json' \
      -d '{"site_url":"https://<your-instawp>.instawp.xyz","admin_email":"sri@xpay.sh"}'
    ```
 
-   Paste the returned `site_id` into **Settings → Agentic Storefront → Connect**.
+   Then hit your WP admin with the returned id in the URL:
+   `<wp-admin>/options-general.php?page=agentic-storefront-for-publishers&asp_site_id=<id>&asp_connected=1`
+
+   The same auto-capture handler persists it.
+
+   Pre-minted test site for `snowflake-quoll-134a4c.instawp.site`:
+   `site_773571663617412c91`
 
 ## What to verify
 

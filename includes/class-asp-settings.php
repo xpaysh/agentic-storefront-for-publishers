@@ -24,7 +24,40 @@ class ASP_Settings {
 	private function __construct() {
 		add_action( 'admin_menu', array( $this, 'register_menu' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
+		add_action( 'admin_init', array( $this, 'maybe_capture_connect_return' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
+	}
+
+	/**
+	 * Captures `?asp_site_id=…&asp_connected=1` on the settings page after the
+	 * publisher returns from app.xpay.sh/onboard/publisher. Persists the site_id
+	 * and strips the query params with a redirect so the URL stays clean and
+	 * the connect handshake is idempotent on refresh.
+	 */
+	public function maybe_capture_connect_return() {
+		if ( ! is_admin() || ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$page = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
+		if ( self::PAGE_SLUG !== $page ) {
+			return;
+		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( empty( $_GET['asp_site_id'] ) || empty( $_GET['asp_connected'] ) ) {
+			return;
+		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$incoming = sanitize_text_field( wp_unslash( $_GET['asp_site_id'] ) );
+		if ( ! preg_match( '/^[a-zA-Z0-9_-]{6,64}$/', $incoming ) ) {
+			return;
+		}
+		update_option( 'asp_site_id', $incoming );
+		if ( class_exists( 'ASP_Emitter_Probe' ) ) {
+			ASP_Emitter_Probe::clear_cache();
+		}
+		wp_safe_redirect( admin_url( 'options-general.php?page=' . self::PAGE_SLUG . '&asp_just_connected=1' ) );
+		exit;
 	}
 
 	public function register_menu() {
