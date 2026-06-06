@@ -100,6 +100,15 @@ class ASP_Settings {
 		);
 		register_setting(
 			self::OPT_GROUP,
+			'asp_amazon_tag',
+			array(
+				'type'              => 'string',
+				'sanitize_callback' => array( $this, 'sanitize_amazon_tag' ),
+				'default'           => '',
+			)
+		);
+		register_setting(
+			self::OPT_GROUP,
 			'asp_exclude_categories',
 			array(
 				'type'              => 'string',
@@ -123,6 +132,21 @@ class ASP_Settings {
 		$parts = array_filter( $parts, 'strlen' );
 		$parts = array_map( 'sanitize_text_field', $parts );
 		return implode( ', ', $parts );
+	}
+
+	/**
+	 * Amazon Associates tag — accepts the standard "myblog-20" shape.
+	 * Returns empty string for anything malformed so we never inject garbage.
+	 */
+	public function sanitize_amazon_tag( $val ) {
+		$tag = strtolower( trim( (string) $val ) );
+		if ( '' === $tag ) {
+			return '';
+		}
+		if ( ! preg_match( '/^[a-z0-9][a-z0-9-]{1,28}-\d{2,4}$/', $tag ) ) {
+			return '';
+		}
+		return $tag;
 	}
 
 	public function enqueue_admin_assets( $hook ) {
@@ -223,6 +247,22 @@ class ASP_Settings {
 				</p>
 				<p class="description">
 					<?php echo esc_html__( 'With this off, recommendations are based only on the public page (categories, tags, post title). With this on, visitor session context may be used — but only when your consent banner explicitly authorises it.', 'agentic-storefront-for-publishers' ); ?>
+				</p>
+
+				<h2><?php echo esc_html__( 'Amazon Associates', 'agentic-storefront-for-publishers' ); ?></h2>
+
+				<p>
+					<label for="asp_amazon_tag"><?php echo esc_html__( 'Your Amazon Associates tag (optional)', 'agentic-storefront-for-publishers' ); ?></label><br />
+					<input type="text" id="asp_amazon_tag" name="asp_amazon_tag" value="<?php echo esc_attr( get_option( 'asp_amazon_tag', '' ) ); ?>" class="regular-text" placeholder="myblog-20" autocomplete="off" spellcheck="false" />
+				</p>
+				<p class="description">
+					<?php
+					printf(
+						/* translators: %s: link to Amazon Associates tracking IDs page */
+						esc_html__( 'When set, any Amazon link this plugin surfaces gets your %s appended. Amazon pays you directly — xpay does not take a share. Find or create a tag in Amazon Associates → Account → Manage Your Tracking IDs.', 'agentic-storefront-for-publishers' ),
+						'<code>?tag=&lt;your-tag&gt;</code>'
+					);
+					?>
 				</p>
 
 				<h2><?php echo esc_html__( 'Brand safety', 'agentic-storefront-for-publishers' ); ?></h2>

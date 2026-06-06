@@ -42,15 +42,17 @@ class ASP_Shortcode {
 
 		ASP_Loader::flag_present();
 
-		$context = ASP_REST::build_page_context( $post );
-		$config  = array(
-			'siteId'  => ASP_Plugin::site_id(),
-			'apiBase' => ASP_API_BASE,
-			'layout'  => sanitize_key( $atts['layout'] ),
-			'limit'   => max( 1, min( 12, (int) $atts['limit'] ) ),
-			'title'   => sanitize_text_field( $atts['title'] ),
-			'theme'   => sanitize_key( $atts['theme'] ),
-			'context' => $context,
+		$context    = ASP_REST::build_page_context( $post );
+		$amazon_tag = get_option( 'asp_amazon_tag', '' );
+		$config     = array(
+			'siteId'    => ASP_Plugin::site_id(),
+			'apiBase'   => ASP_API_BASE,
+			'layout'    => sanitize_key( $atts['layout'] ),
+			'limit'     => max( 1, min( 12, (int) $atts['limit'] ) ),
+			'title'     => sanitize_text_field( $atts['title'] ),
+			'theme'     => sanitize_key( $atts['theme'] ),
+			'context'   => $context,
+			'amazonTag' => $amazon_tag,
 		);
 
 		$config_json = wp_json_encode( $config );

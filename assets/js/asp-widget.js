@@ -118,6 +118,7 @@
 			layout: cfg.layout || 'cards',
 			limit: cfg.limit || 3
 		};
+		if (cfg.amazonTag) payload.amazon_tag = cfg.amazonTag;
 		return fetch(url, {
 			method: 'POST',
 			mode: 'cors',
