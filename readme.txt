@@ -4,7 +4,7 @@ Tags: ai, recommendations, affiliate, llms, agentic
 Requires at least: 6.2
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 0.1.0
+Stable tag: 0.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -91,6 +91,10 @@ Yes. Deleting the plugin removes all settings, transients and the agent storefro
 
 == Changelog ==
 
+= 0.2.0 =
+* Adds a one-click "Open xpay dashboard" link from the connected settings screen so publishers can manage their Amazon tag, see scanned affiliate links, preview recommendations and track click-through revenue from app.xpay.sh without leaving the WordPress admin tab.
+* Internal versioning bump to align with the dashboard release. No backwards-incompatible changes.
+
 = 0.1.0 =
 * Initial release.
 * Shortcode and Gutenberg block for placing recommendation widgets manually.
@@ -98,8 +102,12 @@ Yes. Deleting the plugin removes all settings, transients and the agent storefro
 * Optional `llms.txt` append (off by default).
 * WP Consent API integration: front-end script not enqueued until consent positive.
 * Brand-safety exclude lists.
+* Optional Amazon Associates per-site tag.
 
 == Upgrade Notice ==
+
+= 0.2.0 =
+Adds a deep-link from your plugin settings to your xpay dashboard. No new tracking, no new external services. Safe drop-in upgrade.
 
 = 0.1.0 =
 First public release.

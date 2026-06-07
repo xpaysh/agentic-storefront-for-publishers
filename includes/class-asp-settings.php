@@ -203,9 +203,15 @@ class ASP_Settings {
 						?>
 					</p>
 					<p>
+						<a href="<?php echo esc_url( ASP_DASHBOARD_URL . '/sites/' . rawurlencode( $site_id ) ); ?>" class="button button-primary" target="_blank" rel="noopener">
+							<?php echo esc_html__( 'Open xpay dashboard ↗', 'agentic-storefront-for-publishers' ); ?>
+						</a>
 						<a href="<?php echo esc_url( add_query_arg( 'asp-action', 'disconnect', wp_nonce_url( admin_url( 'options-general.php?page=' . self::PAGE_SLUG ), 'asp-disconnect' ) ) ); ?>" class="button">
 							<?php echo esc_html__( 'Disconnect', 'agentic-storefront-for-publishers' ); ?>
 						</a>
+					</p>
+					<p class="description" style="margin-top: 4px;">
+						<?php echo esc_html__( 'Manage Amazon tag, see scanned affiliate links, preview what we\'d render, and track click-through revenue.', 'agentic-storefront-for-publishers' ); ?>
 					</p>
 				<?php else : ?>
 					<p><?php echo esc_html__( 'Connect this site to xpay to start receiving contextual product recommendations.', 'agentic-storefront-for-publishers' ); ?></p>
