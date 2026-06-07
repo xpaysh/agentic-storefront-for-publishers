@@ -62,8 +62,11 @@ class ASP_Loader {
 		$embed_base     = defined( 'ASP_EMBED_BASE' ) ? ASP_EMBED_BASE : 'https://widget.xpay.sh';
 		$amazon_tag     = (string) get_option( 'asp_amazon_tag', '' );
 
+		// data-surfaces controls which of widget.js's surfaces mount.
+		// "fab" alone = bottom-right FAB only. "fab,drawer" = FAB + a
+		// sticky footer drawer pinned to the viewport bottom.
 		printf(
-			'<script async src="%s" data-site-id="%s" data-storefront-api="%s" data-embed-base="%s" data-amazon-tag="%s"></script>' . "\n",
+			'<script async src="%s" data-site-id="%s" data-storefront-api="%s" data-embed-base="%s" data-amazon-tag="%s" data-surfaces="fab,drawer"></script>' . "\n",
 			esc_url( $widget_src ),
 			esc_attr( $site_id ),
 			esc_url( $api_base ),
