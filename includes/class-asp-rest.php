@@ -176,10 +176,18 @@ class ASP_REST {
 		$consent_perso      = ! empty( $body['consent_personalization'] );
 		$emit_agent         = ! empty( $body['emit_agent_storefront'] );
 		$emit_llms          = ! empty( $body['emit_llms_augment'] );
+		// auto_inject defaults to TRUE on first install so the widget renders
+		// without manual shortcode placement. If the body omits the field,
+		// keep whatever value is currently stored (don't accidentally flip
+		// it on/off via a partial save).
+		$auto_inject = array_key_exists( 'auto_inject', $body )
+			? ! empty( $body['auto_inject'] )
+			: (bool) get_option( 'asp_auto_inject', true );
 
 		update_option( 'asp_amazon_tag', $amazon_tag );
 		update_option( 'asp_exclude_categories', $settings->sanitize_csv( $exclude_categories ) );
 		update_option( 'asp_exclude_domains', $settings->sanitize_csv( $exclude_domains ) );
+		update_option( 'asp_auto_inject', $auto_inject ? 1 : 0 );
 		update_option( 'asp_consent_personalization', $consent_perso ? 1 : 0 );
 		update_option( 'asp_emit_agent_storefront', $emit_agent ? 1 : 0 );
 		update_option( 'asp_emit_llms_augment', $emit_llms ? 1 : 0 );
@@ -194,6 +202,7 @@ class ASP_REST {
 				'amazon_tag'              => (string) get_option( 'asp_amazon_tag', '' ),
 				'exclude_categories'      => $this->csv_to_array( (string) get_option( 'asp_exclude_categories', '' ) ),
 				'exclude_domains'         => $this->csv_to_array( (string) get_option( 'asp_exclude_domains', '' ) ),
+				'auto_inject'             => (bool) get_option( 'asp_auto_inject', true ),
 				'consent_personalization' => (bool) get_option( 'asp_consent_personalization', false ),
 				'emit_agent_storefront'   => (bool) get_option( 'asp_emit_agent_storefront', true ),
 				'emit_llms_augment'       => (bool) get_option( 'asp_emit_llms_augment', false ),

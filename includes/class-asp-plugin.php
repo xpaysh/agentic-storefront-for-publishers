@@ -12,6 +12,7 @@ require_once ASP_PATH . 'includes/class-asp-rest.php';
 require_once ASP_PATH . 'includes/class-asp-settings.php';
 require_once ASP_PATH . 'includes/class-asp-shortcode.php';
 require_once ASP_PATH . 'includes/class-asp-block.php';
+require_once ASP_PATH . 'includes/class-asp-auto-inject.php';
 require_once ASP_PATH . 'includes/class-asp-loader.php';
 
 class ASP_Plugin {
@@ -30,6 +31,7 @@ class ASP_Plugin {
 		ASP_Settings::instance();
 		ASP_Shortcode::instance();
 		ASP_Block::instance();
+		ASP_Auto_Inject::instance();
 		ASP_Loader::instance();
 
 		if ( is_admin() ) {

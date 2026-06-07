@@ -87,6 +87,9 @@ class ASP_Settings {
 		// Defensive — these run on any write path (Options.php form, REST
 		// endpoint, programmatic update_option). Settings API just wires
 		// the sanitiser closer to the wp_options table.
+		register_setting( self::OPT_GROUP, 'asp_auto_inject', array(
+			'type' => 'boolean', 'sanitize_callback' => 'rest_sanitize_boolean', 'default' => true,
+		) );
 		register_setting( self::OPT_GROUP, 'asp_consent_personalization', array(
 			'type' => 'boolean', 'sanitize_callback' => 'rest_sanitize_boolean', 'default' => false,
 		) );
@@ -171,6 +174,7 @@ class ASP_Settings {
 			'amazon_tag'              => (string) get_option( 'asp_amazon_tag', '' ),
 			'exclude_categories'      => $this->csv_to_array( (string) get_option( 'asp_exclude_categories', '' ) ),
 			'exclude_domains'         => $this->csv_to_array( (string) get_option( 'asp_exclude_domains', '' ) ),
+			'auto_inject'             => (bool) get_option( 'asp_auto_inject', true ),
 			'emit_agent_storefront'   => (bool) get_option( 'asp_emit_agent_storefront', true ),
 			'emit_llms_augment'       => (bool) get_option( 'asp_emit_llms_augment', false ),
 			'consent_personalization' => (bool) get_option( 'asp_consent_personalization', false ),
