@@ -58,4 +58,29 @@ class ASP_Consent {
 		}
 		return null;
 	}
+
+	/**
+	 * Should the shortcode/block emit its iframe on the current request?
+	 *
+	 * The bar here is intentionally low because the iframe itself is
+	 * sandboxed + sets no cookies on the host site. We block ONLY when:
+	 *   - the site isn't connected to an xpay publisher account, OR
+	 *   - the WP Consent API explicitly reports a hard NO for marketing.
+	 *
+	 * If no Consent API plugin is installed (server_side_consent_state()
+	 * returns null), the iframe still renders — the embed page itself
+	 * uses no third-party storage, runs only the page-context-based
+	 * decisioning path, and is functionally equivalent to a contextual
+	 * affiliate widget.
+	 */
+	public static function granted() {
+		if ( ! ASP_Plugin::is_connected() ) {
+			return false;
+		}
+		$server = self::server_side_consent_state();
+		if ( false === $server ) {
+			return false;
+		}
+		return true;
+	}
 }
