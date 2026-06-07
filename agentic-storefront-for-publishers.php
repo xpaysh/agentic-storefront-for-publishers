@@ -19,7 +19,11 @@ define( 'ASP_VERSION', '0.3.0' );
 define( 'ASP_FILE', __FILE__ );
 define( 'ASP_PATH', plugin_dir_path( __FILE__ ) );
 define( 'ASP_URL', plugin_dir_url( __FILE__ ) );
-define( 'ASP_API_BASE', defined( 'ASP_API_BASE_OVERRIDE' ) ? ASP_API_BASE_OVERRIDE : 'https://api.xpay.sh' );
+// api.xpay.sh is the umbrella for cross-product endpoints — the publisher-
+// storefront API lives at its own execute-api URL until/unless we map a
+// dedicated subdomain. Publishers can override via wp-config.php when a
+// custom domain is rolled out.
+define( 'ASP_API_BASE', defined( 'ASP_API_BASE_OVERRIDE' ) ? ASP_API_BASE_OVERRIDE : 'https://1iiczxdfea.execute-api.us-east-1.amazonaws.com' );
 define( 'ASP_CONNECT_URL', defined( 'ASP_CONNECT_URL_OVERRIDE' ) ? ASP_CONNECT_URL_OVERRIDE : 'https://app.xpay.sh/onboard/publisher' );
 define( 'ASP_DASHBOARD_URL', defined( 'ASP_DASHBOARD_URL_OVERRIDE' ) ? ASP_DASHBOARD_URL_OVERRIDE : 'https://app.xpay.sh/dashboard/earn/affiliate' );
 // widget.xpay.sh hosts the iframe-embedded UI surfaces (settings, recs).
