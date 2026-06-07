@@ -1,8 +1,23 @@
 <?php
 /**
- * Admin settings screen. Uses the Settings API for storage and field rendering
- * so all input is sanitised by registered callbacks and form-submission CSRF
- * is handled by WordPress.
+ * Admin Settings screen for v0.3.0 thin-shell architecture.
+ *
+ * No PHP-rendered form. We register the storage hooks (Settings API),
+ * keep the one-shot connect-return handshake, and render the admin page
+ * as a single transparent <iframe> pointing at
+ *   widget.xpay.sh/embed/admin/settings
+ *
+ * A tiny inline bridge listens for postMessage from that iframe and
+ * proxies SAVE intents to the WP REST endpoint
+ *   /wp-json/asp/v1/settings
+ * which is the SAME endpoint app.xpay.sh writes to via the publisher's
+ * Privy session — both surfaces converge on the same backend row.
+ *
+ * Sanitisation happens in three places: at the WP REST endpoint
+ * (sanitize_text_field + the validator below), at register_setting()
+ * sanitize_callback (defensive — covers any other write path), and
+ * inside the MUI form itself (regex on the Amazon tag). Defence in
+ * depth.
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -29,10 +44,8 @@ class ASP_Settings {
 	}
 
 	/**
-	 * Captures `?asp_site_id=…&asp_connected=1` on the settings page after the
-	 * publisher returns from app.xpay.sh/onboard/publisher. Persists the site_id
-	 * and strips the query params with a redirect so the URL stays clean and
-	 * the connect handshake is idempotent on refresh.
+	 * Captures `?asp_site_id=…&asp_connected=1` after returning from
+	 * app.xpay.sh/onboard/publisher. Idempotent on refresh.
 	 */
 	public function maybe_capture_connect_return() {
 		if ( ! is_admin() || ! current_user_can( 'manage_options' ) ) {
@@ -71,60 +84,27 @@ class ASP_Settings {
 	}
 
 	public function register_settings() {
-		register_setting(
-			self::OPT_GROUP,
-			'asp_consent_personalization',
-			array(
-				'type'              => 'boolean',
-				'sanitize_callback' => 'rest_sanitize_boolean',
-				'default'           => false,
-			)
-		);
-		register_setting(
-			self::OPT_GROUP,
-			'asp_emit_agent_storefront',
-			array(
-				'type'              => 'boolean',
-				'sanitize_callback' => 'rest_sanitize_boolean',
-				'default'           => true,
-			)
-		);
-		register_setting(
-			self::OPT_GROUP,
-			'asp_emit_llms_augment',
-			array(
-				'type'              => 'boolean',
-				'sanitize_callback' => 'rest_sanitize_boolean',
-				'default'           => false,
-			)
-		);
-		register_setting(
-			self::OPT_GROUP,
-			'asp_amazon_tag',
-			array(
-				'type'              => 'string',
-				'sanitize_callback' => array( $this, 'sanitize_amazon_tag' ),
-				'default'           => '',
-			)
-		);
-		register_setting(
-			self::OPT_GROUP,
-			'asp_exclude_categories',
-			array(
-				'type'              => 'string',
-				'sanitize_callback' => array( $this, 'sanitize_csv' ),
-				'default'           => '',
-			)
-		);
-		register_setting(
-			self::OPT_GROUP,
-			'asp_exclude_domains',
-			array(
-				'type'              => 'string',
-				'sanitize_callback' => array( $this, 'sanitize_csv' ),
-				'default'           => '',
-			)
-		);
+		// Defensive — these run on any write path (Options.php form, REST
+		// endpoint, programmatic update_option). Settings API just wires
+		// the sanitiser closer to the wp_options table.
+		register_setting( self::OPT_GROUP, 'asp_consent_personalization', array(
+			'type' => 'boolean', 'sanitize_callback' => 'rest_sanitize_boolean', 'default' => false,
+		) );
+		register_setting( self::OPT_GROUP, 'asp_emit_agent_storefront', array(
+			'type' => 'boolean', 'sanitize_callback' => 'rest_sanitize_boolean', 'default' => true,
+		) );
+		register_setting( self::OPT_GROUP, 'asp_emit_llms_augment', array(
+			'type' => 'boolean', 'sanitize_callback' => 'rest_sanitize_boolean', 'default' => false,
+		) );
+		register_setting( self::OPT_GROUP, 'asp_amazon_tag', array(
+			'type' => 'string', 'sanitize_callback' => array( $this, 'sanitize_amazon_tag' ), 'default' => '',
+		) );
+		register_setting( self::OPT_GROUP, 'asp_exclude_categories', array(
+			'type' => 'string', 'sanitize_callback' => array( $this, 'sanitize_csv' ), 'default' => '',
+		) );
+		register_setting( self::OPT_GROUP, 'asp_exclude_domains', array(
+			'type' => 'string', 'sanitize_callback' => array( $this, 'sanitize_csv' ), 'default' => '',
+		) );
 	}
 
 	public function sanitize_csv( $val ) {
@@ -134,10 +114,6 @@ class ASP_Settings {
 		return implode( ', ', $parts );
 	}
 
-	/**
-	 * Amazon Associates tag — accepts the standard "myblog-20" shape.
-	 * Returns empty string for anything malformed so we never inject garbage.
-	 */
 	public function sanitize_amazon_tag( $val ) {
 		$tag = strtolower( trim( (string) $val ) );
 		if ( '' === $tag ) {
@@ -161,14 +137,53 @@ class ASP_Settings {
 		);
 	}
 
+	/**
+	 * Renders the WP Admin page. Just the page chrome + iframe + a tiny
+	 * inline bridge listening for postMessage SAVE intents and proxying
+	 * them to the WP REST endpoint with a fresh nonce.
+	 */
 	public function render_page() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
 
-		$connected   = ASP_Plugin::is_connected();
-		$site_id     = ASP_Plugin::site_id();
-		$existing    = ASP_Emitter_Probe::existing_emitters();
+		$connected = ASP_Plugin::is_connected();
+		$site_id   = ASP_Plugin::site_id();
+
+		// Pre-fill iframe query params — values still flow through INIT
+		// postMessage from the bridge, but these are handy for the
+		// standalone-fallback path inside the embed page.
+		$src_args = array(
+			'site_id'        => $site_id,
+			'connected'      => $connected ? '1' : '0',
+			'site_host'      => wp_parse_url( home_url( '/' ), PHP_URL_HOST ),
+			'plugin_version' => ASP_VERSION,
+		);
+		$iframe_src = add_query_arg( $src_args, ASP_EMBED_BASE . '/embed/admin/settings' );
+
+		$nonce        = wp_create_nonce( 'wp_rest' );
+		$rest_url     = esc_url_raw( rest_url( 'asp/v1/settings' ) );
+		$rest_disconn = esc_url_raw( rest_url( 'asp/v1/disconnect' ) );
+
+		// Snapshot the current options so the bridge can ship them as INIT
+		// payload to the iframe immediately on READY.
+		$settings = array(
+			'amazon_tag'              => (string) get_option( 'asp_amazon_tag', '' ),
+			'exclude_categories'      => $this->csv_to_array( (string) get_option( 'asp_exclude_categories', '' ) ),
+			'exclude_domains'         => $this->csv_to_array( (string) get_option( 'asp_exclude_domains', '' ) ),
+			'emit_agent_storefront'   => (bool) get_option( 'asp_emit_agent_storefront', true ),
+			'emit_llms_augment'       => (bool) get_option( 'asp_emit_llms_augment', false ),
+			'consent_personalization' => (bool) get_option( 'asp_consent_personalization', false ),
+		);
+
+		$site_payload = array(
+			'connected'     => $connected,
+			'site_id'       => $site_id,
+			'site_host'     => wp_parse_url( home_url( '/' ), PHP_URL_HOST ),
+			'site_category' => '',
+			'themes'        => array(),
+		);
+
 		$connect_url = esc_url(
 			add_query_arg(
 				array(
@@ -183,124 +198,142 @@ class ASP_Settings {
 		<div class="wrap asp-admin">
 			<h1><?php echo esc_html__( 'Agentic Storefront for Publishers', 'agentic-storefront-for-publishers' ); ?></h1>
 
-			<p class="asp-intro" style="margin: 0 0 14px; color: #6b7280; font-size: 13px;">
+			<?php if ( ! $connected ) : ?>
+				<div class="asp-card">
+					<p><?php echo esc_html__( 'Connect this site to xpay to start receiving contextual product recommendations.', 'agentic-storefront-for-publishers' ); ?></p>
+					<p><a href="<?php echo esc_url( $connect_url ); ?>" class="button button-primary"><?php echo esc_html__( 'Connect site', 'agentic-storefront-for-publishers' ); ?></a></p>
+				</div>
+			<?php endif; ?>
+
+			<iframe
+				id="asp-settings-iframe"
+				src="<?php echo esc_url( $iframe_src ); ?>"
+				title="<?php echo esc_attr__( 'Agentic Storefront settings', 'agentic-storefront-for-publishers' ); ?>"
+				sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+				referrerpolicy="no-referrer"
+				style="width:100%; min-height:760px; border:0; background:transparent;"
+				allowtransparency="true"
+			></iframe>
+
+			<p class="asp-intro" style="margin:14px 0 0; color:#6b7280; font-size:12px;">
 				<?php
 				printf(
-					/* translators: %s: link to the landing page */
+					/* translators: %s: link to the plain-English overview page */
 					esc_html__( 'Plain-English overview of what this plugin does, how revenue works, and Mediavine/Ezoic compatibility: %s', 'agentic-storefront-for-publishers' ),
 					'<a href="https://www.xpay.sh/publishers/wordpress-plugin" target="_blank" rel="noopener">xpay.sh/publishers/wordpress-plugin →</a>'
 				);
 				?>
 			</p>
-
-			<div class="asp-card">
-				<h2><?php echo esc_html__( 'Connection', 'agentic-storefront-for-publishers' ); ?></h2>
-				<?php if ( $connected ) : ?>
-					<p>
-						<?php
-						/* translators: %s: site id */
-						printf( esc_html__( 'Connected. Site id: %s', 'agentic-storefront-for-publishers' ), '<code>' . esc_html( $site_id ) . '</code>' );
-						?>
-					</p>
-					<p>
-						<a href="<?php echo esc_url( ASP_DASHBOARD_URL . '/sites/' . rawurlencode( $site_id ) ); ?>" class="button button-primary" target="_blank" rel="noopener">
-							<?php echo esc_html__( 'Open xpay dashboard ↗', 'agentic-storefront-for-publishers' ); ?>
-						</a>
-						<a href="<?php echo esc_url( add_query_arg( 'asp-action', 'disconnect', wp_nonce_url( admin_url( 'options-general.php?page=' . self::PAGE_SLUG ), 'asp-disconnect' ) ) ); ?>" class="button">
-							<?php echo esc_html__( 'Disconnect', 'agentic-storefront-for-publishers' ); ?>
-						</a>
-					</p>
-					<p class="description" style="margin-top: 4px;">
-						<?php echo esc_html__( 'Manage Amazon tag, see scanned affiliate links, preview what we\'d render, and track click-through revenue.', 'agentic-storefront-for-publishers' ); ?>
-					</p>
-				<?php else : ?>
-					<p><?php echo esc_html__( 'Connect this site to xpay to start receiving contextual product recommendations.', 'agentic-storefront-for-publishers' ); ?></p>
-					<p><a href="<?php echo esc_url( $connect_url ); ?>" class="button button-primary"><?php echo esc_html__( 'Connect site', 'agentic-storefront-for-publishers' ); ?></a></p>
-				<?php endif; ?>
-			</div>
-
-			<form method="post" action="options.php" class="asp-card">
-				<?php settings_fields( self::OPT_GROUP ); ?>
-				<h2><?php echo esc_html__( 'Discovery emitters', 'agentic-storefront-for-publishers' ); ?></h2>
-
-				<p>
-					<label>
-						<input type="checkbox" name="asp_emit_agent_storefront" value="1" <?php checked( get_option( 'asp_emit_agent_storefront', 1 ) ); ?> />
-						<?php echo esc_html__( 'Serve /.well-known/agent-storefront.json (recommended)', 'agentic-storefront-for-publishers' ); ?>
-					</label>
-					<?php if ( ! empty( $existing['/.well-known/agent-storefront.json'] ) ) : ?>
-						<br /><em class="asp-warning"><?php echo esc_html__( 'Detected: another emitter is already serving this path. Our emitter will stay silent.', 'agentic-storefront-for-publishers' ); ?></em>
-					<?php endif; ?>
-				</p>
-
-				<p>
-					<label>
-						<input type="checkbox" name="asp_emit_llms_augment" value="1" <?php checked( get_option( 'asp_emit_llms_augment', 0 ) ); ?> />
-						<?php echo esc_html__( 'Augment /llms.txt with an append-only block (off by default)', 'agentic-storefront-for-publishers' ); ?>
-					</label>
-					<?php if ( ! empty( $existing['/llms.txt'] ) ) : ?>
-						<br /><em class="asp-warning"><?php echo esc_html__( 'Detected: another emitter or static file is serving /llms.txt. Our emitter will stay silent until you remove the conflict.', 'agentic-storefront-for-publishers' ); ?></em>
-					<?php endif; ?>
-				</p>
-
-				<h2><?php echo esc_html__( 'Personalization (optional)', 'agentic-storefront-for-publishers' ); ?></h2>
-
-				<p>
-					<label>
-						<input type="checkbox" name="asp_consent_personalization" value="1" <?php checked( get_option( 'asp_consent_personalization', false ) ); ?> />
-						<?php echo esc_html__( 'Enable personalization (requires visitor consent via your consent manager)', 'agentic-storefront-for-publishers' ); ?>
-					</label>
-				</p>
-				<p class="description">
-					<?php echo esc_html__( 'With this off, recommendations are based only on the public page (categories, tags, post title). With this on, visitor session context may be used — but only when your consent banner explicitly authorises it.', 'agentic-storefront-for-publishers' ); ?>
-				</p>
-
-				<h2><?php echo esc_html__( 'Amazon Associates', 'agentic-storefront-for-publishers' ); ?></h2>
-
-				<p>
-					<label for="asp_amazon_tag"><?php echo esc_html__( 'Your Amazon Associates tag (optional)', 'agentic-storefront-for-publishers' ); ?></label><br />
-					<input type="text" id="asp_amazon_tag" name="asp_amazon_tag" value="<?php echo esc_attr( get_option( 'asp_amazon_tag', '' ) ); ?>" class="regular-text" placeholder="myblog-20" autocomplete="off" spellcheck="false" />
-				</p>
-				<p class="description">
-					<?php
-					printf(
-						/* translators: %s: link to Amazon Associates tracking IDs page */
-						esc_html__( 'When set, any Amazon link this plugin surfaces gets your %s appended. Amazon pays you directly — xpay does not take a share. Find or create a tag in Amazon Associates → Account → Manage Your Tracking IDs.', 'agentic-storefront-for-publishers' ),
-						'<code>?tag=&lt;your-tag&gt;</code>'
-					);
-					?>
-				</p>
-
-				<h2><?php echo esc_html__( 'Brand safety', 'agentic-storefront-for-publishers' ); ?></h2>
-
-				<p>
-					<label for="asp_exclude_categories"><?php echo esc_html__( 'Excluded product categories (comma-separated)', 'agentic-storefront-for-publishers' ); ?></label><br />
-					<input type="text" id="asp_exclude_categories" name="asp_exclude_categories" value="<?php echo esc_attr( get_option( 'asp_exclude_categories', '' ) ); ?>" class="regular-text" />
-				</p>
-
-				<p>
-					<label for="asp_exclude_domains"><?php echo esc_html__( 'Excluded merchant domains (comma-separated)', 'agentic-storefront-for-publishers' ); ?></label><br />
-					<input type="text" id="asp_exclude_domains" name="asp_exclude_domains" value="<?php echo esc_attr( get_option( 'asp_exclude_domains', '' ) ); ?>" class="regular-text" />
-				</p>
-
-				<?php submit_button(); ?>
-			</form>
-
-			<div class="asp-card">
-				<h2><?php echo esc_html__( 'How to place recommendations', 'agentic-storefront-for-publishers' ); ?></h2>
-				<p>
-					<?php echo esc_html__( 'Add the shortcode [xpay_recs] anywhere in a post, or use the "Recommendations" block in the block editor. The widget is intentionally not auto-injected into your content.', 'agentic-storefront-for-publishers' ); ?>
-				</p>
-			</div>
 		</div>
-		<?php
 
-		// Handle disconnect action.
-		if ( isset( $_GET['asp-action'] ) && 'disconnect' === $_GET['asp-action'] && check_admin_referer( 'asp-disconnect' ) ) {
-			delete_option( 'asp_site_id' );
-			ASP_Emitter_Probe::clear_cache();
-			wp_safe_redirect( admin_url( 'options-general.php?page=' . self::PAGE_SLUG ) );
-			exit;
-		}
+		<script>
+		(function () {
+			'use strict';
+
+			// Bridge between the iframe (widget.xpay.sh/embed/admin/settings)
+			// and the WP REST API. The iframe holds NO credentials and makes
+			// NO HTTP calls — every persistence intent comes through this
+			// bridge, which knows the wp_rest nonce.
+			var IFRAME_ID = 'asp-settings-iframe';
+			var REST = <?php echo wp_json_encode( $rest_url ); ?>;
+			var REST_DISCONN = <?php echo wp_json_encode( $rest_disconn ); ?>;
+			var NONCE = <?php echo wp_json_encode( $nonce ); ?>;
+			var EMBED_ORIGIN = <?php echo wp_json_encode( esc_url_raw( ASP_EMBED_BASE ) ); ?>;
+			var INIT_PAYLOAD = <?php echo wp_json_encode( array(
+				'site'           => $site_payload,
+				'settings'       => $settings,
+				'dashboardUrl'   => ASP_DASHBOARD_URL,
+				'connectUrl'     => $connect_url,
+				'pluginVersion'  => ASP_VERSION,
+			) ); ?>;
+
+			var iframe = document.getElementById( IFRAME_ID );
+			if ( !iframe ) return;
+
+			function postToEmbed( msg ) {
+				try {
+					iframe.contentWindow.postMessage( msg, EMBED_ORIGIN );
+				} catch ( e ) { /* cross-origin handled */ }
+			}
+
+			function envelope( action, payload, requestId ) {
+				return {
+					v: 1,
+					dir: 'WP_TO_EMBED',
+					action: action,
+					requestId: requestId || undefined,
+					timestamp: Date.now(),
+					payload: payload
+				};
+			}
+
+			window.addEventListener( 'message', function ( ev ) {
+				if ( !iframe || ev.source !== iframe.contentWindow ) return;
+				var m = ev.data;
+				if ( !m || m.v !== 1 || m.dir !== 'EMBED_TO_WP' ) return;
+
+				if ( m.action === 'READY' ) {
+					postToEmbed( envelope( 'INIT', INIT_PAYLOAD ) );
+					return;
+				}
+
+				if ( m.action === 'SAVE' && m.payload && m.payload.settings ) {
+					fetch( REST, {
+						method: 'POST',
+						credentials: 'same-origin',
+						headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
+						body: JSON.stringify( m.payload.settings )
+					} ).then( function ( r ) {
+						return r.json().then( function ( body ) { return { ok: r.ok, body: body }; } );
+					} ).then( function ( r ) {
+						postToEmbed( envelope( 'SAVED', {
+							ok: r.ok && r.body && r.body.ok !== false,
+							message: r.body && r.body.error ? r.body.error : '',
+							settings: r.body && r.body.settings ? r.body.settings : null
+						}, m.requestId ) );
+					} ).catch( function ( err ) {
+						postToEmbed( envelope( 'SAVED', {
+							ok: false,
+							message: ( err && err.message ) || 'Network error.'
+						}, m.requestId ) );
+					} );
+					return;
+				}
+
+				if ( m.action === 'DISCONNECT' ) {
+					fetch( REST_DISCONN, {
+						method: 'POST',
+						credentials: 'same-origin',
+						headers: { 'X-WP-Nonce': NONCE }
+					} ).then( function ( r ) {
+						postToEmbed( envelope( 'DISCONNECTED', { ok: r.ok } ) );
+						if ( r.ok ) {
+							setTimeout( function () { window.location.reload(); }, 600 );
+						}
+					} ).catch( function ( err ) {
+						postToEmbed( envelope( 'DISCONNECTED', { ok: false, message: ( err && err.message ) || 'Network error.' } ) );
+					} );
+					return;
+				}
+			} );
+
+			// Iframe also auto-resizes via xpay-recs/size — match its content
+			// height so the settings page doesn't get a fixed scroll-area.
+			window.addEventListener( 'message', function ( ev ) {
+				if ( !iframe || ev.source !== iframe.contentWindow ) return;
+				var data = ev.data;
+				if ( !data || data.type !== 'xpay-recs/size' || !data.height ) return;
+				var h = Math.max( 400, Math.min( 1600, Math.ceil( data.height ) ) );
+				iframe.style.height = h + 'px';
+			} );
+		})();
+		</script>
+		<?php
+	}
+
+	private function csv_to_array( $csv ) {
+		$parts = array_map( 'trim', explode( ',', (string) $csv ) );
+		$parts = array_filter( $parts, 'strlen' );
+		return array_values( $parts );
 	}
 }

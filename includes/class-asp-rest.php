@@ -86,6 +86,21 @@ class ASP_REST {
 			)
 		);
 
+		// POST /asp/v1/settings — receives validated settings JSON from the
+		// settings iframe via the WP-admin postMessage bridge. Writes to
+		// wp_options (sanitisers registered in ASP_Settings::register_settings
+		// also fire for defence in depth). Returns the canonical settings
+		// snapshot so the iframe can confirm.
+		register_rest_route(
+			self::NAMESPACE_V1,
+			'/settings',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'rest_settings_save' ),
+				'permission_callback' => array( $this, 'admin_only' ),
+			)
+		);
+
 		register_rest_route(
 			self::NAMESPACE_V1,
 			'/health',
@@ -142,6 +157,64 @@ class ASP_REST {
 			return $resp;
 		}
 		return rest_ensure_response( $resp );
+	}
+
+	public function rest_settings_save( WP_REST_Request $req ) {
+		$body = $req->get_json_params();
+		if ( ! is_array( $body ) ) {
+			return new WP_Error( 'asp_bad_body', __( 'Invalid settings payload.', 'agentic-storefront-for-publishers' ), array( 'status' => 400 ) );
+		}
+
+		$settings = ASP_Settings::instance();
+
+		// Run each field through its registered sanitiser. The sanitisers
+		// already drop bad input (e.g. malformed Amazon tag → empty string),
+		// so we never store anything dangerous.
+		$amazon_tag         = isset( $body['amazon_tag'] ) ? $settings->sanitize_amazon_tag( $body['amazon_tag'] ) : '';
+		$exclude_categories = $this->array_to_csv( isset( $body['exclude_categories'] ) ? $body['exclude_categories'] : array() );
+		$exclude_domains    = $this->array_to_csv( isset( $body['exclude_domains'] ) ? $body['exclude_domains'] : array() );
+		$consent_perso      = ! empty( $body['consent_personalization'] );
+		$emit_agent         = ! empty( $body['emit_agent_storefront'] );
+		$emit_llms          = ! empty( $body['emit_llms_augment'] );
+
+		update_option( 'asp_amazon_tag', $amazon_tag );
+		update_option( 'asp_exclude_categories', $settings->sanitize_csv( $exclude_categories ) );
+		update_option( 'asp_exclude_domains', $settings->sanitize_csv( $exclude_domains ) );
+		update_option( 'asp_consent_personalization', $consent_perso ? 1 : 0 );
+		update_option( 'asp_emit_agent_storefront', $emit_agent ? 1 : 0 );
+		update_option( 'asp_emit_llms_augment', $emit_llms ? 1 : 0 );
+
+		if ( class_exists( 'ASP_Emitter_Probe' ) ) {
+			ASP_Emitter_Probe::clear_cache();
+		}
+
+		return rest_ensure_response( array(
+			'ok'       => true,
+			'settings' => array(
+				'amazon_tag'              => (string) get_option( 'asp_amazon_tag', '' ),
+				'exclude_categories'      => $this->csv_to_array( (string) get_option( 'asp_exclude_categories', '' ) ),
+				'exclude_domains'         => $this->csv_to_array( (string) get_option( 'asp_exclude_domains', '' ) ),
+				'consent_personalization' => (bool) get_option( 'asp_consent_personalization', false ),
+				'emit_agent_storefront'   => (bool) get_option( 'asp_emit_agent_storefront', true ),
+				'emit_llms_augment'       => (bool) get_option( 'asp_emit_llms_augment', false ),
+			),
+		) );
+	}
+
+	private function array_to_csv( $arr ) {
+		if ( ! is_array( $arr ) ) {
+			return (string) $arr;
+		}
+		$arr = array_map( 'strval', $arr );
+		$arr = array_map( 'trim', $arr );
+		$arr = array_filter( $arr, 'strlen' );
+		return implode( ', ', $arr );
+	}
+
+	private function csv_to_array( $csv ) {
+		$parts = array_map( 'trim', explode( ',', (string) $csv ) );
+		$parts = array_filter( $parts, 'strlen' );
+		return array_values( $parts );
 	}
 
 	public function rest_health( WP_REST_Request $req ) {
