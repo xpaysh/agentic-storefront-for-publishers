@@ -28,7 +28,47 @@ class ASP_Loader {
 	}
 
 	private function __construct() {
-		// No front-end script enqueue in v0.3.0 — the iframe at
-		// widget.xpay.sh/embed/recs/inline owns its own runtime.
+		// widget.js owns the FAB + footer drawer surfaces. It's a global
+		// script that mounts once per page, observes the URL/content, and
+		// renders the bottom-right FAB + sticky footer drawer iframes.
+		// The shortcode-emitted inline iframe is a SEPARATE surface and
+		// stays even when widget.js is disabled.
+		add_action( 'wp_footer', array( $this, 'enqueue_widget' ), 50 );
+	}
+
+	/**
+	 * Emit the widget.js script tag on frontend pages so the FAB and
+	 * footer drawer surfaces render.
+	 *
+	 * Skips when:
+	 *   - site isn't connected (no site_id to send to /decide)
+	 *   - consent gate is hard-false
+	 *   - we're in admin / feed / REST / AJAX / embed previews
+	 */
+	public function enqueue_widget() {
+		if ( is_admin() || is_feed() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
+			return;
+		}
+		if ( ! ASP_Plugin::is_connected() ) {
+			return;
+		}
+		if ( ! ASP_Consent::granted() ) {
+			return;
+		}
+
+		$site_id        = (string) get_option( 'asp_site_id', '' );
+		$api_base       = defined( 'ASP_API_BASE' ) ? ASP_API_BASE : 'https://publisher-api.xpay.sh';
+		$widget_src     = defined( 'ASP_EMBED_BASE' ) ? rtrim( ASP_EMBED_BASE, '/' ) . '/widget/v1/widget.js' : 'https://widget.xpay.sh/widget/v1/widget.js';
+		$embed_base     = defined( 'ASP_EMBED_BASE' ) ? ASP_EMBED_BASE : 'https://widget.xpay.sh';
+		$amazon_tag     = (string) get_option( 'asp_amazon_tag', '' );
+
+		printf(
+			'<script async src="%s" data-site-id="%s" data-storefront-api="%s" data-embed-base="%s" data-amazon-tag="%s"></script>' . "\n",
+			esc_url( $widget_src ),
+			esc_attr( $site_id ),
+			esc_url( $api_base ),
+			esc_url( $embed_base ),
+			esc_attr( $amazon_tag )
+		);
 	}
 }
