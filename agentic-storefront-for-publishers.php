@@ -24,7 +24,7 @@ define( 'ASP_URL', plugin_dir_url( __FILE__ ) );
 // Publishers can override via wp-config.php for self-hosted backends.
 define( 'ASP_API_BASE', defined( 'ASP_API_BASE_OVERRIDE' ) ? ASP_API_BASE_OVERRIDE : 'https://publisher-api.xpay.sh' );
 define( 'ASP_CONNECT_URL', defined( 'ASP_CONNECT_URL_OVERRIDE' ) ? ASP_CONNECT_URL_OVERRIDE : 'https://app.xpay.sh/onboard/publisher' );
-define( 'ASP_DASHBOARD_URL', defined( 'ASP_DASHBOARD_URL_OVERRIDE' ) ? ASP_DASHBOARD_URL_OVERRIDE : 'https://app.xpay.sh/dashboard/earn/affiliate' );
+define( 'ASP_DASHBOARD_URL', defined( 'ASP_DASHBOARD_URL_OVERRIDE' ) ? ASP_DASHBOARD_URL_OVERRIDE : 'https://app.xpay.sh/dashboard/earn/affiliate/overview' );
 // widget.xpay.sh hosts the iframe-embedded UI surfaces (settings, recs).
 // Overridable in wp-config.php for local dev pointing at localhost:8087.
 define( 'ASP_EMBED_BASE', defined( 'ASP_EMBED_BASE_OVERRIDE' ) ? ASP_EMBED_BASE_OVERRIDE : 'https://widget.xpay.sh' );
