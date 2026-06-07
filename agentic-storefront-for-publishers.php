@@ -11,7 +11,6 @@
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       agentic-storefront-for-publishers
- * Domain Path:       /languages
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -34,13 +33,7 @@ register_deactivation_hook( __FILE__, array( 'ASP_Plugin', 'on_deactivate' ) );
 
 add_action( 'plugins_loaded', array( 'ASP_Plugin', 'instance' ), 10 );
 
-add_action(
-	'init',
-	function () {
-		load_plugin_textdomain(
-			'agentic-storefront-for-publishers',
-			false,
-			dirname( plugin_basename( __FILE__ ) ) . '/languages/'
-		);
-	}
-);
+// WordPress >=4.6 auto-loads translations for plugins hosted on
+// WordPress.org based on the Text Domain header; no manual
+// load_plugin_textdomain() call needed. See WP_PluginCheck guideline
+// "load_plugin_textdomainFound".

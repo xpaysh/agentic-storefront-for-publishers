@@ -268,8 +268,8 @@ class ASP_REST {
 		$route = get_query_var( self::QUERY_VAR );
 		if ( ! $route ) {
 			// Fallback for hosts where rewrite rules don't fire (Plain permalinks).
-			$req_uri = isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
-			$path    = parse_url( $req_uri, PHP_URL_PATH );
+			$req_uri = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+			$path    = wp_parse_url( $req_uri, PHP_URL_PATH );
 			if ( '/.well-known/agent-storefront.json' === $path ) {
 				$route = 'agent_storefront';
 			} elseif ( '/llms.txt' === $path ) {

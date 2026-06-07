@@ -21,6 +21,8 @@ rsync -a --delete \
 	--exclude 'phpcs.xml.dist' \
 	--exclude '*.zip' \
 	--exclude '.phpcs-cache' \
+	--exclude 'INSTAWP-TEST.md' \
+	--exclude 'README.md' \
 	"${ROOT}/" "${STAGE}/"
 
 ( cd "${OUT}" && zip -rq "${SLUG}.zip" "${SLUG}" )

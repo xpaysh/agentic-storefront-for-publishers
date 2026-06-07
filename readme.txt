@@ -2,13 +2,13 @@
 Contributors: xpaysh
 Tags: ai, recommendations, affiliate, llms, agentic
 Requires at least: 6.2
-Tested up to: 6.6
+Tested up to: 7.0
 Requires PHP: 7.4
 Stable tag: 0.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Contextual product recommendations for content publishers + an agent-readable storefront endpoint so AI assistants can discover products from your posts.
+Contextual product cards on your posts plus an agent-readable storefront endpoint AI assistants can discover.
 
 == Description ==
 
@@ -127,7 +127,7 @@ Yes. Deleting the plugin removes all settings, transients and the agent storefro
 == Upgrade Notice ==
 
 = 0.3.0 =
-Major refactor — the front-end widget and the admin settings page now render inside sandboxed iframes from widget.xpay.sh, not from bundled JavaScript. UI quality and accessibility improve dramatically; the plugin's PHP code drops by ~80%. No new tracking. No new data is sent. Safe drop-in upgrade.
+Front-end widget and admin settings now render inside sandboxed iframes from widget.xpay.sh. UI quality improves significantly; PHP footprint drops ~80%. No new tracking, no new data sent. Safe drop-in upgrade.
 
 = 0.2.0 =
 Adds a deep-link from your plugin settings to your xpay dashboard. No new tracking, no new external services. Safe drop-in upgrade.
