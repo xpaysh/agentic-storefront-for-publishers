@@ -138,6 +138,18 @@ class ASP_Settings {
 			array(),
 			ASP_VERSION
 		);
+		// The postMessage bridge between the embedded xpay control-panel
+		// iframe and the plugin's REST endpoints. Lives in its own file
+		// so Plugin Check / caching plugins / security scanners can see
+		// it on the public scripts list. Configuration values are
+		// printed alongside via wp_add_inline_script — see render_page().
+		wp_enqueue_script(
+			'asp-settings-bridge',
+			ASP_URL . 'assets/js/asp-settings-bridge.js',
+			array(),
+			ASP_VERSION,
+			true
+		);
 	}
 
 	/**
@@ -198,6 +210,30 @@ class ASP_Settings {
 			)
 		);
 
+		// Prime the bridge script with the per-request configuration it
+		// needs: REST URLs, the WP nonce, the embed origin (for tight
+		// postMessage targeting), and the initial state payload to ship
+		// to the embedded control panel.
+		$bridge_config = array(
+			'iframeId'       => 'asp-settings-iframe',
+			'restSave'       => $rest_url,
+			'restDisconnect' => $rest_disconn,
+			'nonce'          => $nonce,
+			'embedOrigin'    => esc_url_raw( ASP_EMBED_BASE ),
+			'initPayload'    => array(
+				'site'          => $site_payload,
+				'settings'      => $settings,
+				'dashboardUrl'  => ASP_DASHBOARD_URL,
+				'connectUrl'    => $connect_url,
+				'pluginVersion' => ASP_VERSION,
+			),
+		);
+		wp_add_inline_script(
+			'asp-settings-bridge',
+			'window.ASP_SETTINGS_BRIDGE_CONFIG = ' . wp_json_encode( $bridge_config ) . ';',
+			'before'
+		);
+
 		?>
 		<div class="wrap asp-admin">
 			<h1><?php echo esc_html__( 'Agentic Storefront for Publishers', 'agentic-storefront-for-publishers' ); ?></h1>
@@ -209,10 +245,33 @@ class ASP_Settings {
 				</div>
 			<?php endif; ?>
 
+			<div class="notice notice-info" style="margin:18px 0; padding:12px 14px;">
+				<p style="margin:0 0 6px; font-weight:600;">
+					<?php echo esc_html__( 'Your xpay account control panel', 'agentic-storefront-for-publishers' ); ?>
+				</p>
+				<p style="margin:0; color:#555;">
+					<?php
+					echo wp_kses(
+						sprintf(
+							/* translators: 1: control-panel host 2: backend host 3: dashboard host */
+							__( 'The panel below is your xpay account configuration screen, embedded here from %1$s as a sandboxed iframe for convenience — the same screen you can also reach by signing in to your xpay account directly. When connected, the plugin sends each rendered page\'s public URL, title, categories and tags to %2$s so xpay can pick relevant products. No visitor identifiers are included. The full xpay publisher dashboard at %3$s is linked-to only and never embedded.', 'agentic-storefront-for-publishers' ),
+							'<code>widget.xpay.sh</code>',
+							'<code>publisher-api.xpay.sh</code>',
+							'<code>app.xpay.sh</code>'
+						),
+						array( 'code' => array() )
+					);
+					?>
+					<a href="https://docs.xpay.sh/en/publishers/wordpress-plugin/privacy" target="_blank" rel="noopener">
+						<?php echo esc_html__( 'Full data-flow disclosure →', 'agentic-storefront-for-publishers' ); ?>
+					</a>
+				</p>
+			</div>
+
 			<iframe
 				id="asp-settings-iframe"
 				src="<?php echo esc_url( $iframe_src ); ?>"
-				title="<?php echo esc_attr__( 'Agentic Storefront settings', 'agentic-storefront-for-publishers' ); ?>"
+				title="<?php echo esc_attr__( 'xpay account control panel (embedded from widget.xpay.sh)', 'agentic-storefront-for-publishers' ); ?>"
 				sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
 				referrerpolicy="no-referrer"
 				style="width:100%; min-height:760px; border:0; background:transparent;"
@@ -230,108 +289,6 @@ class ASP_Settings {
 			</p>
 		</div>
 
-		<script>
-		(function () {
-			'use strict';
-
-			// Bridge between the iframe (widget.xpay.sh/embed/admin/settings)
-			// and the WP REST API. The iframe holds NO credentials and makes
-			// NO HTTP calls — every persistence intent comes through this
-			// bridge, which knows the wp_rest nonce.
-			var IFRAME_ID = 'asp-settings-iframe';
-			var REST = <?php echo wp_json_encode( $rest_url ); ?>;
-			var REST_DISCONN = <?php echo wp_json_encode( $rest_disconn ); ?>;
-			var NONCE = <?php echo wp_json_encode( $nonce ); ?>;
-			var EMBED_ORIGIN = <?php echo wp_json_encode( esc_url_raw( ASP_EMBED_BASE ) ); ?>;
-			var INIT_PAYLOAD = <?php echo wp_json_encode( array(
-				'site'           => $site_payload,
-				'settings'       => $settings,
-				'dashboardUrl'   => ASP_DASHBOARD_URL,
-				'connectUrl'     => $connect_url,
-				'pluginVersion'  => ASP_VERSION,
-			) ); ?>;
-
-			var iframe = document.getElementById( IFRAME_ID );
-			if ( !iframe ) return;
-
-			function postToEmbed( msg ) {
-				try {
-					iframe.contentWindow.postMessage( msg, EMBED_ORIGIN );
-				} catch ( e ) { /* cross-origin handled */ }
-			}
-
-			function envelope( action, payload, requestId ) {
-				return {
-					v: 1,
-					dir: 'WP_TO_EMBED',
-					action: action,
-					requestId: requestId || undefined,
-					timestamp: Date.now(),
-					payload: payload
-				};
-			}
-
-			window.addEventListener( 'message', function ( ev ) {
-				if ( !iframe || ev.source !== iframe.contentWindow ) return;
-				var m = ev.data;
-				if ( !m || m.v !== 1 || m.dir !== 'EMBED_TO_WP' ) return;
-
-				if ( m.action === 'READY' ) {
-					postToEmbed( envelope( 'INIT', INIT_PAYLOAD ) );
-					return;
-				}
-
-				if ( m.action === 'SAVE' && m.payload && m.payload.settings ) {
-					fetch( REST, {
-						method: 'POST',
-						credentials: 'same-origin',
-						headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': NONCE },
-						body: JSON.stringify( m.payload.settings )
-					} ).then( function ( r ) {
-						return r.json().then( function ( body ) { return { ok: r.ok, body: body }; } );
-					} ).then( function ( r ) {
-						postToEmbed( envelope( 'SAVED', {
-							ok: r.ok && r.body && r.body.ok !== false,
-							message: r.body && r.body.error ? r.body.error : '',
-							settings: r.body && r.body.settings ? r.body.settings : null
-						}, m.requestId ) );
-					} ).catch( function ( err ) {
-						postToEmbed( envelope( 'SAVED', {
-							ok: false,
-							message: ( err && err.message ) || 'Network error.'
-						}, m.requestId ) );
-					} );
-					return;
-				}
-
-				if ( m.action === 'DISCONNECT' ) {
-					fetch( REST_DISCONN, {
-						method: 'POST',
-						credentials: 'same-origin',
-						headers: { 'X-WP-Nonce': NONCE }
-					} ).then( function ( r ) {
-						postToEmbed( envelope( 'DISCONNECTED', { ok: r.ok } ) );
-						if ( r.ok ) {
-							setTimeout( function () { window.location.reload(); }, 600 );
-						}
-					} ).catch( function ( err ) {
-						postToEmbed( envelope( 'DISCONNECTED', { ok: false, message: ( err && err.message ) || 'Network error.' } ) );
-					} );
-					return;
-				}
-			} );
-
-			// Iframe also auto-resizes via xpay-recs/size — match its content
-			// height so the settings page doesn't get a fixed scroll-area.
-			window.addEventListener( 'message', function ( ev ) {
-				if ( !iframe || ev.source !== iframe.contentWindow ) return;
-				var data = ev.data;
-				if ( !data || data.type !== 'xpay-recs/size' || !data.height ) return;
-				var h = Math.max( 400, Math.min( 1600, Math.ceil( data.height ) ) );
-				iframe.style.height = h + 'px';
-			} );
-		})();
-		</script>
 		<?php
 	}
 

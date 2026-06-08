@@ -3,7 +3,7 @@
  * Plugin Name:       Agentic Storefront for Publishers
  * Plugin URI:        https://www.xpay.sh/publishers/wordpress-plugin/
  * Description:       Contextual product recommendations for content publishers. Embeds a lightweight, privacy-first widget that surfaces relevant products on your posts, and publishes an agent-readable storefront endpoint so AI assistants can discover and recommend products from your site.
- * Version:           0.3.5
+ * Version:           0.3.6
  * Requires at least: 6.2
  * Requires PHP:      7.4
  * Author:            xpay
@@ -15,7 +15,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'ASP_VERSION', '0.3.5' );
+define( 'ASP_VERSION', '0.3.6' );
 define( 'ASP_FILE', __FILE__ );
 define( 'ASP_PATH', plugin_dir_path( __FILE__ ) );
 define( 'ASP_URL', plugin_dir_url( __FILE__ ) );

@@ -4,7 +4,7 @@ Tags: ai, recommendations, affiliate, llms, agentic
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 0.3.5
+Stable tag: 0.3.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -61,22 +61,18 @@ Both iframes are sandboxed (`sandbox="allow-scripts allow-same-origin allow-form
 
 **3. `app.xpay.sh`** — publisher dashboard. The plugin links you to this URL from the settings page (not embedded). Data passed via deep-link query parameters only.
 
-**4. `install.xpay.sh`** — versioned ZIP-distribution mirror. The plugin is also distributed via this URL (`install.xpay.sh/wordpress-publishers/latest.zip`) for sites without WordPress.org access. The plugin itself does not contact this host at runtime; it is a build-time / install-time download mirror only.
-
-The xpay terms of service and privacy policy: https://www.xpay.sh/terms/ and https://www.xpay.sh/privacy/. Plugin-specific privacy disclosure: https://install.xpay.sh/wordpress-publishers/privacy.html.
+The xpay terms of service and privacy policy: https://www.xpay.sh/terms/ and https://www.xpay.sh/privacy/.
 
 = Privacy =
 
 This plugin is designed so the WordPress runtime never sends visitor-identifying data anywhere.
 
-* **No third-party cookies, no tracking pixels.** The plugin sets zero cookies on your site and emits zero tracking pixels.
-* **No visitor identifiers leave WordPress.** Neither the iframe URLs nor the backend calls receive any visitor cookie, IP-derived ID, or device fingerprint. Only the public URL of the page, its public title, public categories and public tags are sent — the same data Google sees in your site's HTML.
-* **Iframe sandbox isolation.** Recommendation widgets and the settings UI render inside iframes from `widget.xpay.sh`. Sandboxed iframes are a separate browsing context: the host page cannot read into the iframe, and the iframe cannot read into the host page. This is the strongest privacy isolation a third-party widget can offer on WordPress.
-* **Consent-gated rendering.** When the WP Consent API plugin is installed and reports a hard "no" for marketing consent, the iframes are not rendered at all.
-* **All settings stored in WordPress `wp_options`.** Your Amazon Associates tag, excluded categories, excluded domains, and the auto-inject toggle are stored locally in your database. They are never copied to xpay's backend.
+* **No third-party cookies, no tracking pixels.** The plugin sets no cookies on your site and emits no tracking pixels.
+* **Page-context only, no visitor identifiers.** The widget iframe URLs and backend calls receive only the public URL of the page, its public title, its public categories, and its public tags — the same data already in your HTML for search engines. No visitor cookie, IP-derived ID, or device fingerprint is included in the request body.
+* **Iframe sandbox isolation.** Recommendation widgets and the settings UI render inside sandboxed iframes from `widget.xpay.sh`. The host page and the iframe are separate browsing contexts that cannot read each other.
+* **WP Consent API integration.** When the WP Consent API plugin is installed and reports a hard "no" for marketing consent, the iframes are not rendered. If the WP Consent API plugin is not installed, the iframes still load because they collect no visitor data — they are functionally equivalent to embedded editorial content from a third party.
+* **All settings stored in WordPress `wp_options`.** Your Amazon Associates tag, excluded categories, excluded domains, and the auto-inject toggle are stored locally in your database. They are not copied to xpay's backend.
 * **Cleanup on uninstall.** Deleting the plugin removes every `wp_options` row it created and disables the agent storefront endpoint. No data is left in your database.
-
-Full privacy disclosure: https://install.xpay.sh/wordpress-publishers/privacy.html.
 
 = Where the recommended products come from =
 
@@ -133,6 +129,17 @@ Yes. Deleting the plugin removes all settings, transients and the agent storefro
 
 == Changelog ==
 
+= 0.3.6 =
+* Pre-WordPress.org-submit hardening pass against the published guidelines.
+* Settings screen now includes a visible "Your xpay account control panel" disclosure block above the embedded panel, naming every host the plugin contacts (`widget.xpay.sh`, `publisher-api.xpay.sh`, `app.xpay.sh`) and what data is sent.
+* The embedded panel iframe title rewritten to "xpay account control panel (embedded from widget.xpay.sh)" so reviewers and users can see the framing without reading source.
+* Inline `<script>` bridge moved out of the settings page into `assets/js/asp-settings-bridge.js`. Configuration values printed alongside via `wp_add_inline_script` so Plugin Check / caching plugins / security scanners see it on the public scripts list.
+* `/llms.txt` body is now composed from pre-escaped values (`wp_strip_all_tags` + `esc_url_raw`) so the final text/plain emit is safe-by-construction; `phpcs:ignore` comment kept only on the final `echo` with a documented justification.
+* `/asp/v1/page-context` REST endpoint kept public (the widget iframe has no access to WordPress nonces) but now has an inline header comment explaining: only published-post public metadata is exposed; no private fields; same data Google scrapes from the post URL.
+* Readme privacy section reworded to match the code's actual behaviour — no more "strongest privacy isolation" superlative. The WP Consent API gate is described accurately (iframes do load when no Consent API plugin is installed; they collect no visitor data).
+* Removed the `install.xpay.sh` ZIP-mirror sentence from the readme. The mirror still exists (publishers without WordPress.org access can install via direct ZIP) but the WordPress.org-facing readme no longer advertises an alternate distribution channel.
+* Added empty `index.php` silence files to every plugin subdirectory (`includes/`, `assets/`, `assets/js/`, `assets/css/`, `assets/blocks/`, `assets/blocks/recommendations/`).
+
 = 0.3.5 =
 * Fixed two WordPress.org plugin-check errors reported on 0.3.4:
 * `NonEnqueuedScript` — `widget.xpay.sh/widget/v1/widget.js` is now registered via `wp_register_script` and enqueued via `wp_enqueue_script` on the `wp_enqueue_scripts` hook. The required `data-*` attributes (site-id, storefront-api, embed-base, amazon-tag, surfaces) are injected via the `script_loader_tag` filter so the rendered tag is identical to before but flows through the standard WordPress script pipeline (other plugins can dequeue / reorder it, caching plugins see it on the public scripts list).
@@ -170,6 +177,9 @@ Yes. Deleting the plugin removes all settings, transients and the agent storefro
 * Optional Amazon Associates per-site tag.
 
 == Upgrade Notice ==
+
+= 0.3.6 =
+WordPress.org pre-submit hardening — visible external-services disclosure on the settings page, inline script moved to a separate enqueued file, llms.txt output escaped at composition time, readme privacy claims aligned with code behaviour. No behavioural change to publishers; safe drop-in upgrade.
 
 = 0.3.5 =
 Fixes two WordPress.org plugin-check errors on the 0.3.4 build: front-end script now flows through wp_enqueue_script + script_loader_tag, and the readme short description was rewritten. No behavioural change. Safe drop-in upgrade.

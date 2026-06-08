@@ -115,10 +115,23 @@ class ASP_REST {
 			self::NAMESPACE_V1,
 			'/page-context',
 			array(
-				'methods'             => 'GET',
-				'callback'            => array( $this, 'rest_page_context' ),
+				'methods'  => 'GET',
+				'callback' => array( $this, 'rest_page_context' ),
+				/*
+				 * Public read endpoint by design. Returns only PUBLIC,
+				 * already-indexed published-post metadata (title, public
+				 * categories, public tags, excerpt, locale) — the same data
+				 * Google, archive.org, or any front-end scraper sees by
+				 * fetching the post URL directly. No private fields are
+				 * exposed (no author email, no draft posts, no revisions,
+				 * no comment_meta). The widget iframe calls this from a
+				 * separate browsing context (widget.xpay.sh) that has no
+				 * access to WordPress nonces, so we cannot gate on
+				 * current_user_can(). rest_page_context() also clamps
+				 * post_id and ignores non-publish post statuses.
+				 */
 				'permission_callback' => '__return_true',
-				'args'                => array(
+				'args' => array(
 					'post_id' => array( 'type' => 'integer', 'required' => true ),
 				),
 			)
@@ -346,13 +359,19 @@ class ASP_REST {
 		$cache_key = 'asp_llms_txt_' . ASP_Plugin::site_id();
 		$body      = get_transient( $cache_key );
 		if ( ! is_string( $body ) ) {
-			$site_name = get_bloginfo( 'name' );
-			$site_url  = home_url( '/' );
+			// All dynamic values are escaped/sanitised at the point of
+			// concatenation so the final echo only contains safe content.
+			// wp_strip_all_tags() neutralises any HTML the publisher
+			// might have placed in their blog name; esc_url_raw() makes
+			// the URLs safe even though we're serving text/plain.
+			$site_name = wp_strip_all_tags( (string) get_bloginfo( 'name' ) );
+			$site_url  = esc_url_raw( home_url( '/' ) );
+			$agent_url = esc_url_raw( home_url( '/.well-known/agent-storefront.json' ) );
 			$body      = "# " . $site_name . "\n";
 			$body     .= "Site: " . $site_url . "\n\n";
 			$body     .= "<!-- xpay:agent-storefront:begin -->\n";
 			$body     .= "Agent storefront discovery for this site is available at:\n";
-			$body     .= home_url( '/.well-known/agent-storefront.json' ) . "\n";
+			$body     .= $agent_url . "\n";
 			$body     .= "<!-- xpay:agent-storefront:end -->\n";
 			set_transient( $cache_key, $body, 30 * MINUTE_IN_SECONDS );
 		}
@@ -361,6 +380,8 @@ class ASP_REST {
 		header( 'Content-Type: text/plain; charset=utf-8' );
 		header( 'X-ASP-Emitter: asp' );
 		header( 'Cache-Control: public, max-age=1800' );
+		// Body composed entirely from pre-sanitised values above; the
+		// document is served as text/plain so HTML semantics do not apply.
 		echo $body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
 }
