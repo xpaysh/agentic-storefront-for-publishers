@@ -4,7 +4,7 @@ Tags: ai, recommendations, affiliate, llms, agentic
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 0.3.3
+Stable tag: 0.3.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -12,7 +12,9 @@ Contextual product cards on your posts plus an agent-readable storefront endpoin
 
 == Description ==
 
-**Full plain-English overview:** https://www.xpay.sh/publishers/wordpress-plugin
+**Full product overview:** https://www.xpay.sh/publishers/storefront/ · **Plugin landing page:** https://www.xpay.sh/publishers/wordpress-plugin/
+
+**Documentation:** https://docs.xpay.sh/en/publishers/wordpress-plugin · **Source code:** https://github.com/xpaysh/agentic-storefront-for-publishers · **Issue tracker:** https://github.com/xpaysh/agentic-storefront-for-publishers/issues
 
 **Your readers are increasingly arriving from ChatGPT, Claude, Gemini and Perplexity.** They're also still arriving the usual way. Agentic Storefront helps you serve both at once with one short install.
 
@@ -84,9 +86,17 @@ The recommendation engine uses a curated catalog of merchants from xpay's own me
 
 1. Install the plugin from this directory or upload the ZIP via Plugins → Add New → Upload.
 2. Activate. You will be taken to **Settings → Agentic Storefront**.
-3. Click **Connect site**. A short browser tab will open on xpay.sh and return with a `site_id` written into your settings.
-4. Place the recommendations widget where you want it — either by adding the shortcode `[xpay_recs]` to a post, or by inserting the **Recommendations** block in the block editor.
+3. Click **Connect site**. A short browser tab will open on xpay.sh and returns with a `site_id` written into your settings.
+4. The recommendation widget renders automatically below the body of every single post. Want manual placement instead? Toggle **Auto-inject below post content** off and use the `[xpay_recs]` shortcode or **Recommendations** block.
 5. (Optional) Enable the agent storefront endpoint to allow AI assistants to discover products from your site.
+
+Detailed step-by-step with screenshots:
+
+* **Installing the plugin** — https://docs.xpay.sh/en/publishers/wordpress-plugin/installing
+* **Connecting your site** — https://docs.xpay.sh/en/publishers/wordpress-plugin/connecting
+* **Placing the widget** — https://docs.xpay.sh/en/publishers/wordpress-plugin/using
+* **Settings reference** — https://docs.xpay.sh/en/publishers/wordpress-plugin/settings
+* **Troubleshooting** — https://docs.xpay.sh/en/publishers/wordpress-plugin/troubleshooting
 
 == Frequently Asked Questions ==
 
@@ -123,6 +133,11 @@ Yes. Deleting the plugin removes all settings, transients and the agent storefro
 
 == Changelog ==
 
+= 0.3.4 =
+* Plugin URI updated to the dedicated landing page `xpay.sh/publishers/wordpress-plugin/`.
+* readme.txt now links the full documentation set at `docs.xpay.sh/en/publishers/wordpress-plugin/*` (installing, connecting, using, settings, privacy, troubleshooting) and the public source repository at `github.com/xpaysh/agentic-storefront-for-publishers`.
+* Installation steps reflect the auto-inject default added in 0.3.3 (single-post pages render automatically; manual shortcode placement is now opt-in).
+
 = 0.3.3 =
 * **Auto-inject below post content (default ON).** Single-post pages now automatically render the recommendation widget below the post body — no shortcode placement required. Skips when the shortcode or block is already present in the post body, when the site isn't connected, or when consent is hard-denied. New toggle in the settings iframe: "Where the widget appears → Auto-inject below post content".
 * **Front-end widget script enqueued via `wp_footer`.** The bottom-right FAB and sticky footer drawer surfaces are now mounted automatically on connected sites. Previously only the inline iframe rendered (via shortcode/block).
@@ -150,6 +165,9 @@ Yes. Deleting the plugin removes all settings, transients and the agent storefro
 * Optional Amazon Associates per-site tag.
 
 == Upgrade Notice ==
+
+= 0.3.4 =
+Documentation site is now live at docs.xpay.sh/en/publishers/wordpress-plugin and the source repository is public on GitHub. No code changes. Safe drop-in upgrade.
 
 = 0.3.3 =
 Auto-inject below post content (default ON) — no shortcode placement needed. FAB + footer drawer mount automatically on connected sites. Backend moved to dedicated subdomain publisher-api.xpay.sh. New privacy disclosure in readme. No new tracking. Safe drop-in upgrade.
