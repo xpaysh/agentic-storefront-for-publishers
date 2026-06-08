@@ -4,11 +4,11 @@ Tags: ai, recommendations, affiliate, llms, agentic
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 0.3.4
+Stable tag: 0.3.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Contextual product cards on your posts plus an agent-readable storefront endpoint AI assistants can discover.
+Add contextual product recommendations to your WordPress posts and publish a structured feed for AI shopping assistants.
 
 == Description ==
 
@@ -133,6 +133,11 @@ Yes. Deleting the plugin removes all settings, transients and the agent storefro
 
 == Changelog ==
 
+= 0.3.5 =
+* Fixed two WordPress.org plugin-check errors reported on 0.3.4:
+* `NonEnqueuedScript` — `widget.xpay.sh/widget/v1/widget.js` is now registered via `wp_register_script` and enqueued via `wp_enqueue_script` on the `wp_enqueue_scripts` hook. The required `data-*` attributes (site-id, storefront-api, embed-base, amazon-tag, surfaces) are injected via the `script_loader_tag` filter so the rendered tag is identical to before but flows through the standard WordPress script pipeline (other plugins can dequeue / reorder it, caching plugins see it on the public scripts list).
+* Readme short description rewritten in plain English to satisfy `readme_short_description_non_official_language`.
+
 = 0.3.4 =
 * Plugin URI updated to the dedicated landing page `xpay.sh/publishers/wordpress-plugin/`.
 * readme.txt now links the full documentation set at `docs.xpay.sh/en/publishers/wordpress-plugin/*` (installing, connecting, using, settings, privacy, troubleshooting) and the public source repository at `github.com/xpaysh/agentic-storefront-for-publishers`.
@@ -165,6 +170,9 @@ Yes. Deleting the plugin removes all settings, transients and the agent storefro
 * Optional Amazon Associates per-site tag.
 
 == Upgrade Notice ==
+
+= 0.3.5 =
+Fixes two WordPress.org plugin-check errors on the 0.3.4 build: front-end script now flows through wp_enqueue_script + script_loader_tag, and the readme short description was rewritten. No behavioural change. Safe drop-in upgrade.
 
 = 0.3.4 =
 Documentation site is now live at docs.xpay.sh/en/publishers/wordpress-plugin and the source repository is public on GitHub. No code changes. Safe drop-in upgrade.
