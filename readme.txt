@@ -179,7 +179,7 @@ Yes. Deleting the plugin removes all settings, transients and the agent storefro
 == Upgrade Notice ==
 
 = 0.3.6 =
-WordPress.org pre-submit hardening — visible external-services disclosure on the settings page, inline script moved to a separate enqueued file, llms.txt output escaped at composition time, readme privacy claims aligned with code behaviour. No behavioural change to publishers; safe drop-in upgrade.
+Pre-WP.org-submit polish: visible external-services disclosure on settings, inline script extracted to its own enqueued file, llms.txt escaped at composition, readme privacy claims aligned with code. No behavioural change. Safe drop-in upgrade.
 
 = 0.3.5 =
 Fixes two WordPress.org plugin-check errors on the 0.3.4 build: front-end script now flows through wp_enqueue_script + script_loader_tag, and the readme short description was rewritten. No behavioural change. Safe drop-in upgrade.
