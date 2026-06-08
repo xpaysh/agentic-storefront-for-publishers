@@ -4,7 +4,7 @@ Tags: ai, recommendations, affiliate, llms, agentic
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 0.3.0
+Stable tag: 0.3.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,15 +48,33 @@ This plugin integrates with services operated by xpay (xpay.sh). The plugin cont
 
 Both iframes are sandboxed (`sandbox="allow-scripts allow-same-origin allow-forms allow-popups"`) and referrer-stripped (`referrerpolicy="no-referrer"`).
 
-**2. `api.xpay.sh`** — backend API. Called by the widget iframes (not by the WordPress runtime directly).
+**2. `publisher-api.xpay.sh`** — backend API. Called by the widget iframes (not by the WordPress runtime directly). Dedicated subdomain for this plugin's backend so other xpay products can't read or write here.
 
-* Recommendation decision API. Each time the inline widget renders, the iframe requests a recommendation payload. Data sent: page URL, title, categories, tags, `site_id`. No visitor identifier.
-* Beacon endpoint. Each time the widget mounts, an anonymous "load" event is fired so you can see in the xpay dashboard which of your host pages are running the script. Data sent: `site_id`, hostname, post URL, user agent string. No visitor identifier.
-* Registration endpoint. Called once during one-click connect to mint a `site_id`. Data sent: site URL, admin email (if the admin opts in to email reports), one-time OAuth nonce.
+* `POST /storefront/decide` — recommendation decision API. Each time a widget surface renders, the iframe requests a recommendation payload. Data sent: page URL, title, categories, tags, `site_id`. No visitor identifier.
+* `POST /storefront/beacon` — load/click event endpoint. When the widget mounts on a host page, an anonymous "load" event is fired so you can see in your xpay dashboard which of your host pages are running the script. A "click" event is fired when a reader clicks a recommended product card. Data sent: `site_id`, hostname, post URL, merchant domain (on click), user agent string. No visitor identifier.
+* `GET /storefront/installs` — used by the xpay dashboard (not by this plugin) to list the hosts currently loading the widget. Authenticated.
+* `POST /storefront/leads` — lead-capture endpoint called by the onboard page at `app.xpay.sh`, not by this WordPress plugin. Mentioned here for completeness only. The plugin itself does not call this endpoint.
+* `POST /storefront/register` — registration endpoint. Called once during one-click connect to mint a `site_id`. Data sent: site URL, admin email (only if the admin opted in to email reports during onboard), one-time OAuth nonce.
+* `GET /storefront/sites` / `GET /storefront/sites/{site_id}/...` — dashboard reads for your connected sites. Authenticated.
 
 **3. `app.xpay.sh`** — publisher dashboard. The plugin links you to this URL from the settings page (not embedded). Data passed via deep-link query parameters only.
 
-The xpay terms of service and privacy policy: https://www.xpay.sh/terms/ and https://www.xpay.sh/privacy/.
+**4. `install.xpay.sh`** — versioned ZIP-distribution mirror. The plugin is also distributed via this URL (`install.xpay.sh/wordpress-publishers/latest.zip`) for sites without WordPress.org access. The plugin itself does not contact this host at runtime; it is a build-time / install-time download mirror only.
+
+The xpay terms of service and privacy policy: https://www.xpay.sh/terms/ and https://www.xpay.sh/privacy/. Plugin-specific privacy disclosure: https://install.xpay.sh/wordpress-publishers/privacy.html.
+
+= Privacy =
+
+This plugin is designed so the WordPress runtime never sends visitor-identifying data anywhere.
+
+* **No third-party cookies, no tracking pixels.** The plugin sets zero cookies on your site and emits zero tracking pixels.
+* **No visitor identifiers leave WordPress.** Neither the iframe URLs nor the backend calls receive any visitor cookie, IP-derived ID, or device fingerprint. Only the public URL of the page, its public title, public categories and public tags are sent — the same data Google sees in your site's HTML.
+* **Iframe sandbox isolation.** Recommendation widgets and the settings UI render inside iframes from `widget.xpay.sh`. Sandboxed iframes are a separate browsing context: the host page cannot read into the iframe, and the iframe cannot read into the host page. This is the strongest privacy isolation a third-party widget can offer on WordPress.
+* **Consent-gated rendering.** When the WP Consent API plugin is installed and reports a hard "no" for marketing consent, the iframes are not rendered at all.
+* **All settings stored in WordPress `wp_options`.** Your Amazon Associates tag, excluded categories, excluded domains, and the auto-inject toggle are stored locally in your database. They are never copied to xpay's backend.
+* **Cleanup on uninstall.** Deleting the plugin removes every `wp_options` row it created and disables the agent storefront endpoint. No data is left in your database.
+
+Full privacy disclosure: https://install.xpay.sh/wordpress-publishers/privacy.html.
 
 = Where the recommended products come from =
 
@@ -105,6 +123,13 @@ Yes. Deleting the plugin removes all settings, transients and the agent storefro
 
 == Changelog ==
 
+= 0.3.3 =
+* **Auto-inject below post content (default ON).** Single-post pages now automatically render the recommendation widget below the post body — no shortcode placement required. Skips when the shortcode or block is already present in the post body, when the site isn't connected, or when consent is hard-denied. New toggle in the settings iframe: "Where the widget appears → Auto-inject below post content".
+* **Front-end widget script enqueued via `wp_footer`.** The bottom-right FAB and sticky footer drawer surfaces are now mounted automatically on connected sites. Previously only the inline iframe rendered (via shortcode/block).
+* **Backend moved to dedicated subdomain `publisher-api.xpay.sh`.** No more relying on the shared `api.xpay.sh` umbrella. `ASP_API_BASE` default updated; existing installs continue to work because the dashboard reads the publisher's stored API base.
+* External-services disclosure expanded to enumerate every endpoint on the dedicated subdomain, including `/storefront/leads` (used by the onboard page, not by this plugin) and `/storefront/installs` (dashboard read).
+* New Privacy section in the readme spelling out: no cookies, no tracking pixels, no visitor identifiers, iframe sandbox isolation, consent gating, and clean uninstall.
+
 = 0.3.0 =
 * **Thin-shell architecture.** The plugin no longer ships a bundled JavaScript renderer. The recommendation widget and the WordPress settings screen are now rendered inside sandboxed iframes loaded from `widget.xpay.sh`. The plugin's PHP footprint dropped by ~80% and the rendering can iterate without a plugin update.
 * New REST endpoint `POST /wp-json/asp/v1/settings` that receives validated settings JSON via postMessage from the settings iframe. WordPress nonces guard the endpoint; user input is sanitised on the way in.
@@ -125,6 +150,9 @@ Yes. Deleting the plugin removes all settings, transients and the agent storefro
 * Optional Amazon Associates per-site tag.
 
 == Upgrade Notice ==
+
+= 0.3.3 =
+Auto-inject below post content (default ON) — no shortcode placement needed. FAB + footer drawer mount automatically on connected sites. Backend moved to dedicated subdomain publisher-api.xpay.sh. New privacy disclosure in readme. No new tracking. Safe drop-in upgrade.
 
 = 0.3.0 =
 Front-end widget and admin settings now render inside sandboxed iframes from widget.xpay.sh. UI quality improves significantly; PHP footprint drops ~80%. No new tracking, no new data sent. Safe drop-in upgrade.
