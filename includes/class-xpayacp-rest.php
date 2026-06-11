@@ -3,7 +3,7 @@
  * REST + discovery surface for the publisher plugin.
  *
  * Two roles:
- *   1. Internal REST endpoints under namespace `asp/v1` for the admin UI
+ *   1. Internal REST endpoints under namespace `xpayacp/v1` for the admin UI
  *      (connect, disconnect, decide-preview, save-settings).
  *   2. Top-level discovery emitters that respond on bare paths:
  *        - /.well-known/agent-storefront.json
@@ -16,11 +16,11 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class ASP_REST {
+class XPAYACP_REST {
 
 	private static $instance = null;
-	const NAMESPACE_V1       = 'asp/v1';
-	const QUERY_VAR          = 'asp_route';
+	const NAMESPACE_V1       = 'xpayacp/v1';
+	const QUERY_VAR          = 'xpayacp_route';
 
 	public static function instance() {
 		if ( null === self::$instance ) {
@@ -40,13 +40,13 @@ class ASP_REST {
 	}
 
 	public function maybe_flush_rewrites() {
-		if ( get_option( 'asp_flush_rewrites' ) ) {
+		if ( get_option( 'xpayacp_flush_rewrites' ) ) {
 			flush_rewrite_rules();
-			delete_option( 'asp_flush_rewrites' );
+			delete_option( 'xpayacp_flush_rewrites' );
 		}
 	}
 
-	// --- WP REST API (asp/v1) --------------------------------------------
+	// --- WP REST API (xpayacp/v1) --------------------------------------------
 
 	public function register_rest_routes() {
 		register_rest_route(
@@ -86,21 +86,6 @@ class ASP_REST {
 			)
 		);
 
-		// POST /asp/v1/settings — receives validated settings JSON from the
-		// settings iframe via the WP-admin postMessage bridge. Writes to
-		// wp_options (sanitisers registered in ASP_Settings::register_settings
-		// also fire for defence in depth). Returns the canonical settings
-		// snapshot so the iframe can confirm.
-		register_rest_route(
-			self::NAMESPACE_V1,
-			'/settings',
-			array(
-				'methods'             => 'POST',
-				'callback'            => array( $this, 'rest_settings_save' ),
-				'permission_callback' => array( $this, 'admin_only' ),
-			)
-		);
-
 		register_rest_route(
 			self::NAMESPACE_V1,
 			'/health',
@@ -115,24 +100,21 @@ class ASP_REST {
 			self::NAMESPACE_V1,
 			'/page-context',
 			array(
-				'methods'  => 'GET',
-				'callback' => array( $this, 'rest_page_context' ),
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'rest_page_context' ),
 				/*
-				 * Public read endpoint by design. Returns only PUBLIC,
-				 * already-indexed published-post metadata (title, public
-				 * categories, public tags, excerpt, locale) — the same data
-				 * Google, archive.org, or any front-end scraper sees by
-				 * fetching the post URL directly. No private fields are
-				 * exposed (no author email, no draft posts, no revisions,
-				 * no comment_meta). The widget iframe calls this from a
-				 * separate browsing context (widget.xpay.sh) that has no
-				 * access to WordPress nonces, so we cannot gate on
-				 * current_user_can(). rest_page_context() also clamps
-				 * post_id and ignores non-publish post statuses.
+				 * The widget iframe is on a separate origin and has no
+				 * WordPress nonce, so we cannot use current_user_can().
+				 * Instead we require an HMAC the shortcode produced at
+				 * render time, signed with the site's secret. The
+				 * permission_callback verifies the signature; the body
+				 * still exposes only published public-post fields.
 				 */
-				'permission_callback' => '__return_true',
-				'args' => array(
+				'permission_callback' => array( $this, 'verify_page_context_signature' ),
+				'args'                => array(
 					'post_id' => array( 'type' => 'integer', 'required' => true ),
+					'ts'      => array( 'type' => 'integer', 'required' => true ),
+					'sig'     => array( 'type' => 'string',  'required' => true ),
 				),
 			)
 		);
@@ -142,110 +124,73 @@ class ASP_REST {
 		return current_user_can( 'manage_options' );
 	}
 
+	const PAGE_CONTEXT_TTL = 6 * HOUR_IN_SECONDS;
+
+	public static function sign_page_context( $post_id, $ts = null ) {
+		$token = XPAYACP_Plugin::site_token();
+		if ( ! $token ) {
+			return null;
+		}
+		$ts = null === $ts ? time() : (int) $ts;
+		$sig = hash_hmac( 'sha256', $post_id . '|' . $ts, $token );
+		return array( 'ts' => $ts, 'sig' => $sig );
+	}
+
+	public function verify_page_context_signature( WP_REST_Request $req ) {
+		$token = XPAYACP_Plugin::site_token();
+		if ( ! $token ) {
+			return false;
+		}
+		$post_id = (int) $req->get_param( 'post_id' );
+		$ts      = (int) $req->get_param( 'ts' );
+		$sig     = (string) $req->get_param( 'sig' );
+		if ( $post_id <= 0 || $ts <= 0 || '' === $sig ) {
+			return false;
+		}
+		if ( abs( time() - $ts ) > self::PAGE_CONTEXT_TTL ) {
+			return false;
+		}
+		$expected = hash_hmac( 'sha256', $post_id . '|' . $ts, $token );
+		return hash_equals( $expected, $sig );
+	}
+
 	public function rest_connect( WP_REST_Request $req ) {
 		$site_id = sanitize_text_field( (string) $req->get_param( 'site_id' ) );
 		if ( ! preg_match( '/^[a-zA-Z0-9_-]{6,64}$/', $site_id ) ) {
-			return new WP_Error( 'asp_invalid_site_id', __( 'Invalid site id.', 'agentic-storefront-for-publishers' ), array( 'status' => 400 ) );
+			return new WP_Error( 'xpayacp_invalid_site_id', __( 'Invalid site id.', 'xpay-agentic-commerce-for-publishers' ), array( 'status' => 400 ) );
 		}
-		update_option( 'asp_site_id', $site_id );
-		ASP_Emitter_Probe::clear_cache();
+		update_option( 'xpayacp_site_id', $site_id );
+		XPAYACP_Emitter_Probe::clear_cache();
 		return rest_ensure_response( array( 'ok' => true, 'site_id' => $site_id ) );
 	}
 
 	public function rest_disconnect( WP_REST_Request $req ) {
-		delete_option( 'asp_site_id' );
-		ASP_Emitter_Probe::clear_cache();
+		delete_option( 'xpayacp_site_id' );
+		XPAYACP_Emitter_Probe::clear_cache();
 		return rest_ensure_response( array( 'ok' => true ) );
 	}
 
 	public function rest_decide_preview( WP_REST_Request $req ) {
 		$url     = esc_url_raw( (string) $req->get_param( 'url' ) );
 		$context = array(
-			'site_id' => ASP_Plugin::site_id(),
+			'site_id' => XPAYACP_Plugin::site_id(),
 			'url'     => $url,
 			'preview' => true,
 		);
-		$resp = ASP_Client::decide( $context );
+		$resp = XPAYACP_Client::decide( $context );
 		if ( is_wp_error( $resp ) ) {
 			return $resp;
 		}
 		return rest_ensure_response( $resp );
 	}
 
-	public function rest_settings_save( WP_REST_Request $req ) {
-		$body = $req->get_json_params();
-		if ( ! is_array( $body ) ) {
-			return new WP_Error( 'asp_bad_body', __( 'Invalid settings payload.', 'agentic-storefront-for-publishers' ), array( 'status' => 400 ) );
-		}
-
-		$settings = ASP_Settings::instance();
-
-		// Run each field through its registered sanitiser. The sanitisers
-		// already drop bad input (e.g. malformed Amazon tag → empty string),
-		// so we never store anything dangerous.
-		$amazon_tag         = isset( $body['amazon_tag'] ) ? $settings->sanitize_amazon_tag( $body['amazon_tag'] ) : '';
-		$exclude_categories = $this->array_to_csv( isset( $body['exclude_categories'] ) ? $body['exclude_categories'] : array() );
-		$exclude_domains    = $this->array_to_csv( isset( $body['exclude_domains'] ) ? $body['exclude_domains'] : array() );
-		$consent_perso      = ! empty( $body['consent_personalization'] );
-		$emit_agent         = ! empty( $body['emit_agent_storefront'] );
-		$emit_llms          = ! empty( $body['emit_llms_augment'] );
-		// auto_inject defaults to TRUE on first install so the widget renders
-		// without manual shortcode placement. If the body omits the field,
-		// keep whatever value is currently stored (don't accidentally flip
-		// it on/off via a partial save).
-		$auto_inject = array_key_exists( 'auto_inject', $body )
-			? ! empty( $body['auto_inject'] )
-			: (bool) get_option( 'asp_auto_inject', true );
-
-		update_option( 'asp_amazon_tag', $amazon_tag );
-		update_option( 'asp_exclude_categories', $settings->sanitize_csv( $exclude_categories ) );
-		update_option( 'asp_exclude_domains', $settings->sanitize_csv( $exclude_domains ) );
-		update_option( 'asp_auto_inject', $auto_inject ? 1 : 0 );
-		update_option( 'asp_consent_personalization', $consent_perso ? 1 : 0 );
-		update_option( 'asp_emit_agent_storefront', $emit_agent ? 1 : 0 );
-		update_option( 'asp_emit_llms_augment', $emit_llms ? 1 : 0 );
-
-		if ( class_exists( 'ASP_Emitter_Probe' ) ) {
-			ASP_Emitter_Probe::clear_cache();
-		}
-
-		return rest_ensure_response( array(
-			'ok'       => true,
-			'settings' => array(
-				'amazon_tag'              => (string) get_option( 'asp_amazon_tag', '' ),
-				'exclude_categories'      => $this->csv_to_array( (string) get_option( 'asp_exclude_categories', '' ) ),
-				'exclude_domains'         => $this->csv_to_array( (string) get_option( 'asp_exclude_domains', '' ) ),
-				'auto_inject'             => (bool) get_option( 'asp_auto_inject', true ),
-				'consent_personalization' => (bool) get_option( 'asp_consent_personalization', false ),
-				'emit_agent_storefront'   => (bool) get_option( 'asp_emit_agent_storefront', true ),
-				'emit_llms_augment'       => (bool) get_option( 'asp_emit_llms_augment', false ),
-			),
-		) );
-	}
-
-	private function array_to_csv( $arr ) {
-		if ( ! is_array( $arr ) ) {
-			return (string) $arr;
-		}
-		$arr = array_map( 'strval', $arr );
-		$arr = array_map( 'trim', $arr );
-		$arr = array_filter( $arr, 'strlen' );
-		return implode( ', ', $arr );
-	}
-
-	private function csv_to_array( $csv ) {
-		$parts = array_map( 'trim', explode( ',', (string) $csv ) );
-		$parts = array_filter( $parts, 'strlen' );
-		return array_values( $parts );
-	}
-
 	public function rest_health( WP_REST_Request $req ) {
-		$emitters = ASP_Emitter_Probe::existing_emitters();
+		$emitters = XPAYACP_Emitter_Probe::existing_emitters();
 		return rest_ensure_response(
 			array(
-				'connected'         => ASP_Plugin::is_connected(),
-				'site_id'           => ASP_Plugin::site_id(),
-				'version'           => ASP_VERSION,
+				'connected'         => XPAYACP_Plugin::is_connected(),
+				'site_id'           => XPAYACP_Plugin::site_id(),
+				'version'           => XPAYACP_VERSION,
 				'existing_emitters' => $emitters,
 			)
 		);
@@ -255,7 +200,14 @@ class ASP_REST {
 		$post_id = (int) $req->get_param( 'post_id' );
 		$post    = get_post( $post_id );
 		if ( ! $post || 'publish' !== $post->post_status ) {
-			return new WP_Error( 'asp_not_found', __( 'Post not found.', 'agentic-storefront-for-publishers' ), array( 'status' => 404 ) );
+			return new WP_Error( 'xpayacp_not_found', __( 'Post not found.', 'xpay-agentic-commerce-for-publishers' ), array( 'status' => 404 ) );
+		}
+		if ( ! in_array( $post->post_type, array( 'post', 'page' ), true ) ) {
+			return new WP_Error( 'xpayacp_not_found', __( 'Post not found.', 'xpay-agentic-commerce-for-publishers' ), array( 'status' => 404 ) );
+		}
+		$post_type_object = get_post_type_object( $post->post_type );
+		if ( ! $post_type_object || empty( $post_type_object->public ) ) {
+			return new WP_Error( 'xpayacp_not_found', __( 'Post not found.', 'xpay-agentic-commerce-for-publishers' ), array( 'status' => 404 ) );
 		}
 		return rest_ensure_response( self::build_page_context( $post ) );
 	}
@@ -310,21 +262,21 @@ class ASP_REST {
 	}
 
 	private function serve_agent_storefront() {
-		if ( ! ASP_Plugin::is_connected() ) {
+		if ( ! XPAYACP_Plugin::is_connected() ) {
 			status_header( 404 );
 			header( 'Content-Type: application/json; charset=utf-8' );
 			echo wp_json_encode( array( 'error' => 'site not connected' ) );
 			return;
 		}
-		if ( ! (bool) get_option( 'asp_emit_agent_storefront', 1 ) ) {
+		if ( ! (bool) get_option( 'xpayacp_emit_agent_storefront', 1 ) ) {
 			status_header( 404 );
 			return;
 		}
 
-		$cache_key = 'asp_agent_storefront_' . ASP_Plugin::site_id();
+		$cache_key = 'xpayacp_agent_storefront_' . XPAYACP_Plugin::site_id();
 		$payload   = get_transient( $cache_key );
 		if ( ! is_array( $payload ) ) {
-			$resp = ASP_Client::agent_card( ASP_Plugin::site_id() );
+			$resp = XPAYACP_Client::agent_card( XPAYACP_Plugin::site_id() );
 			if ( is_wp_error( $resp ) ) {
 				status_header( 502 );
 				header( 'Content-Type: application/json; charset=utf-8' );
@@ -343,20 +295,20 @@ class ASP_REST {
 	}
 
 	private function serve_llms_txt() {
-		$augment = (bool) get_option( 'asp_emit_llms_augment', 0 );
-		if ( ! $augment || ! ASP_Plugin::is_connected() ) {
+		$augment = (bool) get_option( 'xpayacp_emit_llms_augment', 0 );
+		if ( ! $augment || ! XPAYACP_Plugin::is_connected() ) {
 			status_header( 404 );
 			return;
 		}
 
-		$existing = ASP_Emitter_Probe::existing_emitters();
+		$existing = XPAYACP_Emitter_Probe::existing_emitters();
 		if ( isset( $existing['/llms.txt'] ) && $existing['/llms.txt'] ) {
 			// Something else owns /llms.txt — refuse to overwrite.
 			status_header( 404 );
 			return;
 		}
 
-		$cache_key = 'asp_llms_txt_' . ASP_Plugin::site_id();
+		$cache_key = 'xpayacp_llms_txt_' . XPAYACP_Plugin::site_id();
 		$body      = get_transient( $cache_key );
 		if ( ! is_string( $body ) ) {
 			// All dynamic values are escaped/sanitised at the point of

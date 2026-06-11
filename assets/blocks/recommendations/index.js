@@ -4,7 +4,7 @@
 	var el = element.createElement;
 	var __ = i18n.__;
 
-	blocks.registerBlockType( 'asp/recommendations', {
+	blocks.registerBlockType( 'xpay/recommendations', {
 		edit: function ( props ) {
 			var attrs = props.attributes;
 			var setAttributes = props.setAttributes;
@@ -18,16 +18,16 @@
 					{},
 					el(
 						components.PanelBody,
-						{ title: __( 'Recommendations', 'agentic-storefront-for-publishers' ), initialOpen: true },
+						{ title: __( 'Recommendations', 'xpay-agentic-commerce-for-publishers' ), initialOpen: true },
 						el( components.TextControl, {
-							label: __( 'Heading (optional)', 'agentic-storefront-for-publishers' ),
+							label: __( 'Heading (optional)', 'xpay-agentic-commerce-for-publishers' ),
 							value: attrs.title || '',
 							onChange: function ( v ) {
 								setAttributes( { title: v } );
 							}
 						} ),
 						el( components.RangeControl, {
-							label: __( 'Maximum products', 'agentic-storefront-for-publishers' ),
+							label: __( 'Maximum products', 'xpay-agentic-commerce-for-publishers' ),
 							value: attrs.limit || 3,
 							min: 1,
 							max: 12,
@@ -36,11 +36,11 @@
 							}
 						} ),
 						el( components.SelectControl, {
-							label: __( 'Layout', 'agentic-storefront-for-publishers' ),
+							label: __( 'Layout', 'xpay-agentic-commerce-for-publishers' ),
 							value: attrs.layout || 'cards',
 							options: [
-								{ label: __( 'Cards', 'agentic-storefront-for-publishers' ), value: 'cards' },
-								{ label: __( 'Compact list', 'agentic-storefront-for-publishers' ), value: 'list' }
+								{ label: __( 'Cards', 'xpay-agentic-commerce-for-publishers' ), value: 'cards' },
+								{ label: __( 'Compact list', 'xpay-agentic-commerce-for-publishers' ), value: 'list' }
 							],
 							onChange: function ( v ) {
 								setAttributes( { layout: v } );
@@ -51,10 +51,10 @@
 				el(
 					'div',
 					{ style: { padding: '12px', border: '1px dashed #c3c4c7', borderRadius: '6px', background: '#fff' } },
-					el( 'strong', {}, __( 'Recommendations', 'agentic-storefront-for-publishers' ) ),
+					el( 'strong', {}, __( 'Recommendations', 'xpay-agentic-commerce-for-publishers' ) ),
 					attrs.title ? el( 'div', {}, '"' + attrs.title + '"' ) : null,
 					el( 'div', { style: { color: '#6b7280', fontSize: '12px', marginTop: '4px' } },
-						__( 'Live recommendations will render on the published page.', 'agentic-storefront-for-publishers' )
+						__( 'Live recommendations will render on the published page.', 'xpay-agentic-commerce-for-publishers' )
 					)
 				)
 			);

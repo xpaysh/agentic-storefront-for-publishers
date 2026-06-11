@@ -22,9 +22,9 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class ASP_Loader {
+class XPAYACP_Loader {
 
-	const HANDLE = 'asp-widget';
+	const HANDLE = 'xpayacp-widget';
 
 	private static $present  = false;
 	private static $instance = null;
@@ -57,22 +57,32 @@ class ASP_Loader {
 		if ( is_admin() || is_feed() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
 			return;
 		}
-		if ( ! ASP_Plugin::is_connected() ) {
+		if ( ! XPAYACP_Plugin::is_connected() ) {
 			return;
 		}
-		if ( ! ASP_Consent::granted() ) {
+		// Default ON; publishers can opt out from Settings → xpay Agentic
+		// Commerce. The FAB and footer drawer surfaces are what makes this
+		// "install once, works on every page" — turning the toggle off
+		// restricts the widget to shortcode/block placements only.
+		if ( ! (bool) get_option( 'xpayacp_enable_widget', true ) ) {
+			return;
+		}
+		if ( ! $this->path_matches_rules() ) {
+			return;
+		}
+		if ( ! XPAYACP_Consent::granted() ) {
 			return;
 		}
 
-		$widget_src = defined( 'ASP_EMBED_BASE' )
-			? rtrim( ASP_EMBED_BASE, '/' ) . '/widget/v1/widget.js'
+		$widget_src = defined( 'XPAYACP_EMBED_BASE' )
+			? rtrim( XPAYACP_EMBED_BASE, '/' ) . '/widget/v1/widget.js'
 			: 'https://widget.xpay.sh/widget/v1/widget.js';
 
 		wp_register_script(
 			self::HANDLE,
 			$widget_src,
 			array(),
-			ASP_VERSION,
+			XPAYACP_VERSION,
 			true
 		);
 		wp_enqueue_script( self::HANDLE );
@@ -85,15 +95,58 @@ class ASP_Loader {
 	 * widget.js reads these attributes at boot to know which site it's
 	 * mounting for, which backend to call, and which surfaces to render.
 	 */
+	/**
+	 * PostHog-style include/exclude path matching against REQUEST_URI.
+	 *
+	 *   - empty include list  → all paths eligible
+	 *   - non-empty include   → only matching paths eligible
+	 *   - non-empty exclude   → matching paths always blocked (wins over include)
+	 *
+	 * Wildcards: `*` (any chars), `?` (single char) via fnmatch.
+	 */
+	private function path_matches_rules() {
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotValidated
+		$req_uri = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '/';
+		$path    = (string) wp_parse_url( $req_uri, PHP_URL_PATH );
+		if ( '' === $path ) {
+			$path = '/';
+		}
+
+		$include = self::parse_patterns( (string) get_option( 'xpayacp_include_patterns', '' ) );
+		$exclude = self::parse_patterns( (string) get_option( 'xpayacp_exclude_patterns', '' ) );
+
+		foreach ( $exclude as $p ) {
+			if ( fnmatch( $p, $path ) ) {
+				return false;
+			}
+		}
+		if ( empty( $include ) ) {
+			return true;
+		}
+		foreach ( $include as $p ) {
+			if ( fnmatch( $p, $path ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public static function parse_patterns( $raw ) {
+		$lines = preg_split( '/[\r\n]+/', (string) $raw );
+		$lines = array_map( 'trim', is_array( $lines ) ? $lines : array() );
+		$lines = array_filter( $lines, 'strlen' );
+		return array_values( $lines );
+	}
+
 	public function decorate_script_tag( $tag, $handle ) {
 		if ( self::HANDLE !== $handle ) {
 			return $tag;
 		}
 
-		$site_id    = (string) get_option( 'asp_site_id', '' );
-		$amazon_tag = (string) get_option( 'asp_amazon_tag', '' );
-		$api_base   = defined( 'ASP_API_BASE' )   ? ASP_API_BASE   : 'https://publisher-api.xpay.sh';
-		$embed_base = defined( 'ASP_EMBED_BASE' ) ? ASP_EMBED_BASE : 'https://widget.xpay.sh';
+		$site_id    = (string) get_option( 'xpayacp_site_id', '' );
+		$amazon_tag = (string) get_option( 'xpayacp_amazon_tag', '' );
+		$api_base   = defined( 'XPAYACP_API_BASE' )   ? XPAYACP_API_BASE   : 'https://publisher-api.xpay.sh';
+		$embed_base = defined( 'XPAYACP_EMBED_BASE' ) ? XPAYACP_EMBED_BASE : 'https://widget.xpay.sh';
 
 		$attrs = sprintf(
 			' async data-site-id="%s" data-storefront-api="%s" data-embed-base="%s" data-amazon-tag="%s" data-surfaces="fab,drawer"',

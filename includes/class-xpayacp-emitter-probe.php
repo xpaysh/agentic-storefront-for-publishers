@@ -12,10 +12,10 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class ASP_Emitter_Probe {
+class XPAYACP_Emitter_Probe {
 
 	const PROBE_HEADER     = 'X-ASP-Probe';
-	const TRANSIENT_KEY    = 'asp_emitter_probe';
+	const TRANSIENT_KEY    = 'xpayacp_emitter_probe';
 	const TRANSIENT_TTL    = HOUR_IN_SECONDS * 6;
 	const PROBE_TIMEOUT    = 4;
 

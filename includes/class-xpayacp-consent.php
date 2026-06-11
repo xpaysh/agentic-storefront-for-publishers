@@ -12,7 +12,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class ASP_Consent {
+class XPAYACP_Consent {
 
 	private static $instance = null;
 
@@ -33,10 +33,10 @@ class ASP_Consent {
 	 * @return bool
 	 */
 	public static function may_enqueue() {
-		if ( ! ASP_Plugin::is_connected() ) {
+		if ( ! XPAYACP_Plugin::is_connected() ) {
 			return false;
 		}
-		$personalization = (bool) get_option( 'asp_consent_personalization', false );
+		$personalization = (bool) get_option( 'xpayacp_consent_personalization', false );
 		if ( ! $personalization ) {
 			// Non-personalised path is still allowed — manual shortcode placement.
 			// The actual decision API call is L1+L3 only when personalization is off,
@@ -74,7 +74,7 @@ class ASP_Consent {
 	 * affiliate widget.
 	 */
 	public static function granted() {
-		if ( ! ASP_Plugin::is_connected() ) {
+		if ( ! XPAYACP_Plugin::is_connected() ) {
 			return false;
 		}
 		$server = self::server_side_consent_state();

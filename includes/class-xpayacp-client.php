@@ -8,7 +8,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class ASP_Client {
+class XPAYACP_Client {
 
 	const TIMEOUT_DECIDE = 5;
 	const TIMEOUT_OTHER  = 8;
@@ -38,9 +38,9 @@ class ASP_Client {
 	}
 
 	private static function request( $method, $path, $body, $timeout ) {
-		$url     = trailingslashit( ASP_API_BASE ) . ltrim( $path, '/' );
-		$site_id = ASP_Plugin::site_id();
-		$token   = ASP_Plugin::site_token();
+		$url     = trailingslashit( XPAYACP_API_BASE ) . ltrim( $path, '/' );
+		$site_id = XPAYACP_Plugin::site_id();
+		$token   = XPAYACP_Plugin::site_token();
 
 		$args = array(
 			'method'  => $method,
@@ -48,7 +48,7 @@ class ASP_Client {
 			'headers' => array(
 				'Content-Type'   => 'application/json',
 				'Accept'         => 'application/json',
-				'X-ASP-Version'  => ASP_VERSION,
+				'X-ASP-Version'  => XPAYACP_VERSION,
 				'X-ASP-Site-Id'  => $site_id,
 			),
 		);
@@ -71,7 +71,7 @@ class ASP_Client {
 		$json = json_decode( $raw, true );
 
 		if ( $code >= 400 ) {
-			return new WP_Error( 'asp_http_' . $code, is_array( $json ) && isset( $json['error'] ) ? (string) $json['error'] : 'Upstream error.' );
+			return new WP_Error( 'xpayacp_http_' . $code, is_array( $json ) && isset( $json['error'] ) ? (string) $json['error'] : 'Upstream error.' );
 		}
 
 		return is_array( $json ) ? $json : array();

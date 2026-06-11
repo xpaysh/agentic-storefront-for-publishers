@@ -11,7 +11,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class ASP_Shortcode {
+class XPAYACP_Shortcode {
 
 	private static $instance = null;
 
@@ -40,18 +40,16 @@ class ASP_Shortcode {
 		);
 
 		$post = get_post();
-		if ( ! $post || ! ASP_Plugin::is_connected() ) {
+		if ( ! $post || ! XPAYACP_Plugin::is_connected() ) {
 			return '';
 		}
-		if ( ! ASP_Consent::granted() ) {
+		if ( ! XPAYACP_Consent::granted() ) {
 			return '';
 		}
 
-		ASP_Loader::flag_present();
-
-		$site_id    = ASP_Plugin::site_id();
-		$context    = ASP_REST::build_page_context( $post );
-		$amazon_tag = get_option( 'asp_amazon_tag', '' );
+		$site_id    = XPAYACP_Plugin::site_id();
+		$context    = XPAYACP_REST::build_page_context( $post );
+		$amazon_tag = get_option( 'xpayacp_amazon_tag', '' );
 
 		$qs_args = array(
 			'site_id'  => $site_id,
@@ -64,13 +62,23 @@ class ASP_Shortcode {
 			$qs_args['amazon_tag'] = sanitize_text_field( $amazon_tag );
 		}
 
-		$src    = add_query_arg( $qs_args, ASP_EMBED_BASE . '/embed/recs/inline' );
+		// Pass a signed page-context token so the iframe can re-fetch
+		// canonical metadata via /wp-json/xpayacp/v1/page-context without
+		// holding a WordPress nonce.
+		$signed = XPAYACP_REST::sign_page_context( $post->ID );
+		if ( is_array( $signed ) ) {
+			$qs_args['post_id']  = (int) $post->ID;
+			$qs_args['ctx_ts']   = (int) $signed['ts'];
+			$qs_args['ctx_sig']  = $signed['sig'];
+		}
+
+		$src    = add_query_arg( $qs_args, XPAYACP_EMBED_BASE . '/embed/recs/inline' );
 		$height = max( 200, min( 1200, (int) $atts['height'] ) );
-		$title  = $atts['title'] ? $atts['title'] : __( 'Recommended products', 'agentic-storefront-for-publishers' );
+		$title  = $atts['title'] ? $atts['title'] : __( 'Recommended products', 'xpay-agentic-commerce-for-publishers' );
 
 		ob_start();
 		?>
-		<div class="asp-recs-frame" data-asp-mount="1">
+		<div class="xpayacp-recs-frame" data-xpayacp-mount="1">
 			<iframe
 				src="<?php echo esc_url( $src ); ?>"
 				title="<?php echo esc_attr( $title ); ?>"
@@ -80,7 +88,7 @@ class ASP_Shortcode {
 				style="width:100%; height:<?php echo esc_attr( $height ); ?>px; border:0; background:transparent;"
 				allow="clipboard-write"
 			></iframe>
-			<noscript><a href="<?php echo esc_url( home_url( '/.well-known/agent-storefront.json' ) ); ?>"><?php echo esc_html__( 'Browse recommended products', 'agentic-storefront-for-publishers' ); ?></a></noscript>
+			<noscript><a href="<?php echo esc_url( home_url( '/.well-known/agent-storefront.json' ) ); ?>"><?php echo esc_html__( 'Browse recommended products', 'xpay-agentic-commerce-for-publishers' ); ?></a></noscript>
 		</div>
 		<?php
 		return (string) ob_get_clean();

@@ -1,4 +1,4 @@
-.asp-admin .asp-card {
+.xpayacp-admin .xpayacp-card {
 	background: #fff;
 	border: 1px solid #c3c4c7;
 	border-radius: 6px;
@@ -7,16 +7,16 @@
 	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
 }
 
-.asp-admin .asp-card h2 {
+.xpayacp-admin .xpayacp-card h2 {
 	margin-top: 0;
 }
 
-.asp-admin code {
+.xpayacp-admin code {
 	background: #f0f0f1;
 	padding: 2px 6px;
 	border-radius: 3px;
 }
 
-.asp-admin .asp-warning {
+.xpayacp-admin .asp-warning {
 	color: #b32d2e;
 }

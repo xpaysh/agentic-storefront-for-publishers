@@ -7,26 +7,30 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 	exit;
 }
 
-$options = array(
-	'asp_site_id',
-	'asp_site_token',
-	'asp_oauth_state',
-	'asp_settings',
-	'asp_consent_personalization',
-	'asp_first_activated_at',
-	'asp_installed_version',
-	'asp_flush_rewrites',
-	'asp_emit_agent_storefront',
-	'asp_emit_llms_augment',
-	'asp_exclude_categories',
-	'asp_exclude_domains',
+$xpayacp_options = array(
+	'xpayacp_site_id',
+	'xpayacp_site_token',
+	'xpayacp_oauth_state',
+	'xpayacp_settings',
+	'xpayacp_consent_personalization',
+	'xpayacp_first_activated_at',
+	'xpayacp_installed_version',
+	'xpayacp_flush_rewrites',
+	'xpayacp_emit_agent_storefront',
+	'xpayacp_emit_llms_augment',
+	'xpayacp_exclude_categories',
+	'xpayacp_exclude_domains',
+	'xpayacp_amazon_tag',
+	'xpayacp_enable_widget',
+	'xpayacp_include_patterns',
+	'xpayacp_exclude_patterns',
 );
 
-foreach ( $options as $opt ) {
-	delete_option( $opt );
-	delete_site_option( $opt );
+foreach ( $xpayacp_options as $xpayacp_opt ) {
+	delete_option( $xpayacp_opt );
+	delete_site_option( $xpayacp_opt );
 }
 
-delete_transient( 'asp_post_activation_redirect' );
-delete_transient( 'asp_emitter_probe' );
-delete_transient( 'asp_health' );
+delete_transient( 'xpayacp_post_activation_redirect' );
+delete_transient( 'xpayacp_emitter_probe' );
+delete_transient( 'xpayacp_health' );

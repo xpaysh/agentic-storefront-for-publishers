@@ -2,7 +2,7 @@
 # Package the plugin into a clean WP.org-uploadable ZIP.
 set -euo pipefail
 
-SLUG="agentic-storefront-for-publishers"
+SLUG="xpay-agentic-commerce-for-publishers"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${ROOT}/build"
 STAGE="${OUT}/${SLUG}"

@@ -7,7 +7,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class ASP_Block {
+class XPAYACP_Block {
 
 	private static $instance = null;
 
@@ -27,7 +27,7 @@ class ASP_Block {
 			return;
 		}
 		register_block_type(
-			ASP_PATH . 'assets/blocks/recommendations',
+			XPAYACP_PATH . 'assets/blocks/recommendations',
 			array(
 				'render_callback' => array( $this, 'render' ),
 			)
