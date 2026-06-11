@@ -27,7 +27,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SLUG="agentic-storefront-for-publishers"
+SLUG="xpay-agentic-commerce-for-publishers"
 ZIP="${ROOT}/build/${SLUG}.zip"
 
 PROFILE="${PROFILE:-agentically}"
